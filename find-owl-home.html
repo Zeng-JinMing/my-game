@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>寻找猫头鹰</title>
+<style>
+/* ─── Reset & Base ─── */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; }
+html, body { width:100%; height:100%; overflow:hidden; background:#060e1a; color:#fff; font-family:'PingFang SC','Microsoft YaHei','Noto Sans SC',Arial,sans-serif; }
+:root {
+  --safe-top: max(20px, env(safe-area-inset-top, 20px));
+  --safe-bot: max(24px, env(safe-area-inset-bottom, 24px));
+  --green:#3ea83e; --gold:#ffd700; --red:#ef4444; --lime:#70e870;
+}
+
+/* ─── Screen management ─── */
+.screen {
+  position:fixed; inset:0; z-index:10;
+  display:flex; flex-direction:column; align-items:center;
+  overflow-y:auto; overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  transition:opacity .3s ease, transform .3s ease;
+}
+.screen.hidden { opacity:0; pointer-events:none; transform:scale(.96); }
+
+/* ════════════════════════════════
+   HOME SCREEN
+════════════════════════════════ */
+#homeScreen {
+  background:
+    radial-gradient(ellipse 120% 50% at 50% 0%, rgba(120,100,20,.18) 0%, transparent 55%),
+    linear-gradient(180deg, #060e1a 0%, #0a1a0a 50%, #060e1a 100%);
+}
+.home-index-btn {
+  position:fixed; top:12px; left:12px; z-index:9999;
+  display:flex; align-items:center; gap:5px;
+  background:rgba(0,0,0,.55); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.2); color:#fff;
+  font-size:13px; font-weight:600; padding:7px 14px; border-radius:20px;
+  cursor:pointer; text-decoration:none;
+  font-family:'PingFang SC','Microsoft YaHei',Arial,sans-serif;
+  transition:background .15s;
+}
+.home-index-btn:hover  { background:rgba(0,0,0,.8); }
+.home-index-btn:active { opacity:.88; transform:scale(.97); }
+.home-body {
+  position:relative; z-index:1; width:100%; max-width:420px;
+  padding:var(--safe-top) 22px var(--safe-bot);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100%;
+}
+.icon-wrap {
+  width:88px; height:88px; margin:8px auto 14px;
+  background:linear-gradient(145deg,rgba(62,168,62,.22),rgba(255,215,0,.12));
+  border:2px solid rgba(100,180,80,.26); border-radius:26px;
+  display:flex; align-items:center; justify-content:center; font-size:52px;
+  box-shadow:0 12px 36px rgba(62,168,62,.2),inset 0 1px 0 rgba(255,255,255,.14);
+  animation:iconBob 3.8s ease-in-out infinite;
+}
+@keyframes iconBob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)} }
+.game-name {
+  font-size:32px; font-weight:900; color:#fff; letter-spacing:6px; text-align:center; margin-bottom:6px;
+  text-shadow:0 0 28px rgba(255,215,0,.3),0 2px 5px rgba(0,0,0,.6);
+}
+.game-sub { font-size:13px; color:rgba(180,220,160,.58); letter-spacing:1.5px; text-align:center; margin-bottom:24px; }
+.guide-card { width:100%; background:rgba(0,0,0,.32); border:1px solid rgba(255,255,255,.11); border-radius:16px; padding:16px 20px; margin-bottom:22px; }
+.guide-line { display:flex; align-items:baseline; gap:9px; font-size:14.5px; color:rgba(255,255,255,.78); line-height:2.05; }
+.guide-line strong { color:var(--gold); font-weight:700; }
+.guide-line em     { color:var(--red);  font-style:normal; font-weight:700; }
+.diff-label { font-size:12px; color:rgba(180,220,160,.55); letter-spacing:2px; margin-bottom:10px; align-self:flex-start; }
+.diff-group { width:100%; display:flex; gap:10px; margin-bottom:26px; }
+.diff-btn {
+  flex:1; padding:10px 6px;
+  background:rgba(255,255,255,.07); border:1.5px solid rgba(255,255,255,.2);
+  border-radius:22px; color:rgba(255,255,255,.7);
+  font-size:13px; font-weight:600; cursor:pointer; text-align:center; line-height:1.55; transition:all .16s;
+}
+.diff-btn small { display:block; font-size:11px; font-weight:400; opacity:.75; }
+.diff-btn.active { border-color:var(--gold); background:rgba(255,215,0,.15); color:var(--gold); box-shadow:0 0 16px rgba(255,215,0,.18); }
+.diff-btn:active { transform:scale(.94); }
+.btn-start {
+  width:100%; padding:16px;
+  background:linear-gradient(135deg, #3ea83e, #1a5c1a);
+  border:none; border-radius:50px; color:#fff;
+  font-size:19px; font-weight:800; letter-spacing:4px;
+  cursor:pointer; box-shadow:0 6px 26px rgba(62,168,62,.35);
+  transition:all .15s; position:relative; overflow:hidden;
+}
+.btn-start::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg,rgba(255,255,255,.15) 0%,transparent 55%); }
+.btn-start:active { transform:scale(.96); opacity:.9; }
+
+/* ════════════════════════════════
+   TUTORIAL SCREEN
+════════════════════════════════ */
+#tutScreen { background:linear-gradient(180deg,#060e1a 0%,#091a0b 100%); }
+.tut-body { width:100%; max-width:460px; padding:var(--safe-top) 22px 0; display:flex; flex-direction:column; align-items:center; min-height:100%; }
+.tut-topbar { width:100%; display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+.tut-back { height:38px; flex-shrink:0; padding:0 14px; background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.15); border-radius:20px; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600; cursor:pointer; color:rgba(255,255,255,.75); white-space:nowrap; }
+.tut-back:active { opacity:.7; }
+.tut-skip { height:38px; flex-shrink:0; padding:0 14px; background:rgba(62,168,62,.15); border:1px solid rgba(62,168,62,.4); border-radius:20px; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600; cursor:pointer; color:var(--green); white-space:nowrap; }
+.tut-skip:active { opacity:.7; }
+.tut-progress { flex:1; height:6px; background:rgba(255,255,255,.11); border-radius:3px; overflow:hidden; }
+.tut-fill { height:100%; background:linear-gradient(90deg,#3ea83e,#ffd700); border-radius:3px; transition:width .35s ease; }
+.tut-cnt { font-size:14px; color:rgba(255,255,255,.4); flex-shrink:0; min-width:36px; text-align:right; }
+.tut-panel { width:100%; display:none; flex-direction:column; align-items:center; }
+.tut-panel.active { display:flex; animation:panelIn .3s ease; }
+@keyframes panelIn { from{opacity:0;transform:translateX(28px)} to{opacity:1;transform:none} }
+.demo-box {
+  width:100%; min-height:160px;
+  background:linear-gradient(180deg,rgba(10,30,10,.7) 0%,rgba(6,14,26,.9) 100%);
+  border:1px solid rgba(62,168,62,.2); border-radius:22px;
+  margin-bottom:16px; position:relative; overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+  padding:14px 0;
+}
+.demo-box::before {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.012) 1px,transparent 1px);
+  background-size:36px 36px;
+}
+.step-head { font-size:20px; font-weight:800; color:#fff; text-align:center; margin-bottom:8px; }
+.step-body { font-size:15px; color:rgba(255,255,255,.82); text-align:center; line-height:1.85; margin-bottom:14px; max-width:340px; }
+.step-body strong { color:var(--gold); }
+.step-body .good   { color:#7FFF9A; font-weight:700; }
+.step-body .danger { color:var(--red); font-weight:700; }
+.tut-nav { width:100%; display:flex; gap:12px; margin-top:auto; padding:14px 0 var(--safe-bot); }
+.btn-prev { flex:0 0 88px; height:58px; background:rgba(255,255,255,.09); border:1.5px solid rgba(255,255,255,.18); border-radius:16px; color:rgba(255,255,255,.7); font-size:15px; cursor:pointer; visibility:hidden; }
+.btn-prev:active { opacity:.7; transform:scale(.96); }
+.btn-next { flex:1; height:58px; background:linear-gradient(135deg,#3ea83e,#1a5c1a); border:none; border-radius:16px; color:#fff; font-size:19px; font-weight:700; letter-spacing:1px; cursor:pointer; box-shadow:0 5px 22px rgba(62,168,62,.28); display:flex; align-items:center; justify-content:center; gap:6px; transition:background .25s; }
+.btn-next:active { transform:scale(.97); opacity:.92; }
+.btn-next.final { background:linear-gradient(135deg,#1a9a55,#22CC66); box-shadow:0 5px 22px rgba(0,180,80,.32); }
+
+/* ─── Demo: Step 1 – 夜森林 + 猫头鹰闪现 ─── */
+.d1-scene { position:relative; width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
+.d1-moon  { position:absolute; top:12px; right:20px; font-size:28px; filter:drop-shadow(0 0 12px rgba(255,215,80,.5)); pointer-events:none; }
+.d1-trees { position:absolute; bottom:0; left:0; right:0; display:flex; justify-content:space-around; font-size:28px; filter:brightness(.4); padding:0 8px; pointer-events:none; }
+.d1-owl   { font-size:48px; position:relative; z-index:2; animation:d1Blink 3s ease-in-out infinite; }
+@keyframes d1Blink {
+  0%,12%  { opacity:0; transform:scale(.45); filter:drop-shadow(0 0 0 transparent); }
+  25%,65% { opacity:1; transform:scale(1);   filter:drop-shadow(0 0 18px rgba(255,215,0,.75)); }
+  80%,100%{ opacity:0; transform:scale(.45); filter:drop-shadow(0 0 0 transparent); }
+}
+.d1-tag { position:absolute; bottom:12px; right:12px; background:rgba(0,0,0,.52); border:1px solid rgba(255,215,0,.3); border-radius:20px; padding:5px 13px; font-size:13px; color:rgba(255,215,0,.9); }
+
+/* ─── Demo: Step 2 – 现身计时 ─── */
+.d2-wrap { display:flex; align-items:center; gap:22px; }
+.d2-left { display:flex; flex-direction:column; align-items:center; gap:10px; }
+.d2-owl  { font-size:50px; animation:d2Pop 2.4s ease-in-out infinite; }
+@keyframes d2Pop {
+  0%,8%   { opacity:0; transform:scale(.4); }
+  20%,58% { opacity:1; transform:scale(1); filter:drop-shadow(0 0 16px rgba(255,215,0,.7)); }
+  72%,100%{ opacity:0; transform:scale(.4); }
+}
+.d2-badge { padding:5px 13px; border-radius:20px; background:rgba(255,215,0,.14); color:var(--gold); border:1px solid rgba(255,215,0,.3); font-size:12px; font-weight:600; animation:d2BadgePulse 2.4s ease-in-out infinite; }
+@keyframes d2BadgePulse { 0%,100%{opacity:.6} 40%{opacity:1} }
+.d2-arrow { font-size:20px; color:rgba(255,255,255,.3); }
+.d2-ring-wrap { position:relative; width:82px; height:82px; }
+.d2-svg   { width:82px; height:82px; transform:rotate(-90deg); }
+.d2-track { fill:none; stroke:rgba(255,255,255,.11); stroke-width:7; }
+.d2-arc   { fill:none; stroke:var(--gold); stroke-width:7; stroke-linecap:round; stroke-dasharray:219; animation:d2Drain 2.4s linear infinite; }
+@keyframes d2Drain { 0%{stroke-dashoffset:0;stroke:#ffd700} 85%{stroke-dashoffset:219;stroke:#3ea83e} 100%{stroke-dashoffset:219} }
+.d2-num   { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:800; color:var(--gold); }
+.d2-label { position:absolute; bottom:-20px; left:50%; transform:translateX(-50%); font-size:11px; color:rgba(255,255,255,.4); white-space:nowrap; }
+
+/* ─── Demo: Step 3 – 点中 vs 点空 ─── */
+.d3-outer { display:flex; flex-direction:column; align-items:center; gap:10px; }
+.d3-row   { display:flex; align-items:center; gap:28px; }
+.d3-side  { display:flex; flex-direction:column; align-items:center; gap:8px; position:relative; }
+.d3-spot  { width:58px; height:58px; border-radius:50%; border:2px dashed rgba(255,255,255,.2); display:flex; align-items:center; justify-content:center; font-size:30px; }
+.d3-correct { animation:d3CorrectPop 2.6s ease-in-out infinite; }
+@keyframes d3CorrectPop {
+  0%,15%  { background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.2); }
+  28%,68% { background:rgba(255,215,0,.18); border-color:rgba(255,215,0,.6); box-shadow:0 0 22px rgba(255,215,0,.4); }
+  82%,100%{ background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.2); }
+}
+.d3-wrong { animation:d3WrongBlink 2.6s ease-in-out infinite; }
+@keyframes d3WrongBlink {
+  0%,38%  { background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.2); }
+  50%,70% { background:rgba(239,68,68,.18); border-color:rgba(239,68,68,.5); box-shadow:0 0 18px rgba(239,68,68,.35); }
+  84%,100%{ background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.2); }
+}
+.d3-finger { position:absolute; top:-48px; left:50%; transform:translateX(-50%); font-size:26px; animation:d3FingerTap 2.6s ease-in-out infinite; }
+.d3-finger.delay { animation-delay:.65s; }
+@keyframes d3FingerTap {
+  0%,25%  { transform:translateX(-50%) translateY(-6px); opacity:.3; }
+  40%,65% { transform:translateX(-50%) translateY(30px); opacity:1; }
+  80%,100%{ transform:translateX(-50%) translateY(-6px); opacity:.3; }
+}
+.d3-lbl     { padding:5px 14px; border-radius:18px; font-size:12.5px; font-weight:700; }
+.d3-lbl.yes { background:rgba(255,215,0,.18); color:var(--gold); border:1px solid rgba(255,215,0,.3); }
+.d3-lbl.no  { background:rgba(239,68,68,.18); color:#f87171;    border:1px solid rgba(239,68,68,.3); }
+.d3-vs { font-size:16px; color:rgba(255,255,255,.25); font-weight:700; }
+
+/* ─── Demo: Step 4 – 计分规则 ─── */
+.s4-wrap { display:flex; flex-direction:column; align-items:center; gap:11px; width:100%; padding:0 18px; }
+.s4-rule { width:100%; display:flex; align-items:center; gap:12px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.09); border-radius:12px; padding:10px 14px; }
+.s4-icon { font-size:26px; flex-shrink:0; line-height:1; }
+.s4-text { font-size:13px; color:rgba(255,255,255,.75); line-height:1.55; }
+.s4-text strong { color:var(--gold); }
+.s4-text .ok { color:#7FFF9A; font-weight:700; }
+.s4-rule:nth-child(1){ border-color:rgba(255,215,0,.22); }
+.s4-rule:nth-child(2){ border-color:rgba(62,168,62,.22); }
+.s4-rule:nth-child(3){ border-color:rgba(239,68,68,.18); }
+
+/* ─── Demo: Step 5 – 互动试玩 ─── */
+.p5-zone { width:100%; border:2px dashed rgba(62,168,62,.3); border-radius:20px; padding:18px 16px 14px; display:flex; flex-direction:column; align-items:center; gap:10px; background:rgba(0,14,6,.38); margin-bottom:22px; position:relative; overflow:hidden; }
+.p5-hint-title { font-size:16px; font-weight:700; color:rgba(255,255,255,.9); display:flex; align-items:center; gap:7px; }
+.p5-hint-sub   { font-size:13px; color:rgba(180,220,160,.6); }
+.p5-arena { position:relative; width:100%; height:110px; background:linear-gradient(180deg,#060e1a,#091a0b); border-radius:12px; overflow:hidden; cursor:crosshair; }
+.p5-arena-bg { position:absolute; bottom:0; left:0; right:0; display:flex; justify-content:space-around; font-size:22px; filter:brightness(.4); pointer-events:none; }
+.p5-arena-moon { position:absolute; top:6px; right:12px; font-size:18px; filter:drop-shadow(0 0 6px rgba(255,215,80,.5)); pointer-events:none; }
+.p5-owl { position:absolute; font-size:28px; transform:translate(-50%,-50%); transition:opacity .2s, transform .2s; cursor:pointer; z-index:5; }
+.p5-owl.hidden { opacity:0; transform:translate(-50%,-50%) scale(.3); pointer-events:none; }
+.p5-owl.found  { filter:drop-shadow(0 0 12px rgba(255,215,0,.8)); pointer-events:none; }
+.p5-msg    { font-size:15px; font-weight:700; color:var(--lime); opacity:0; transform:translateY(8px); transition:opacity .3s,transform .3s; min-height:22px; text-align:center; }
+.p5-msg.show { opacity:1; transform:translateY(0); }
+.p5-status { font-size:13px; color:rgba(180,220,160,.5); min-height:18px; text-align:center; animation:p5Blink 1.6s ease-in-out infinite; }
+.p5-status.active { animation:none; color:rgba(112,232,112,.95); font-weight:600; }
+@keyframes p5Blink { 0%,100%{opacity:.5} 50%{opacity:1} }
+.p5-go-text { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:64px; font-weight:900; background:linear-gradient(135deg,#3ea83e,#ffd700); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; pointer-events:none; opacity:0; }
+.p5-go-text.show { animation:p5GoAnim .7s ease forwards; }
+@keyframes p5GoAnim { 0%{opacity:0;transform:scale(.35)} 40%{opacity:1;transform:scale(1.18)} 70%{opacity:1;transform:scale(.92)} 100%{opacity:0;transform:scale(1.45)} }
+
+/* ════════════════════════════════
+   GAME CONTAINER (full-screen scene)
+════════════════════════════════ */
+#gameContainer { position:fixed; inset:0; z-index:1; display:none; }
+#gameContainer.active { display:block; }
+#scene {
+  position:absolute; inset:0; touch-action:none; overflow:hidden;
+  background:
+    radial-gradient(ellipse 55% 35% at 78% 12%, rgba(255,215,70,.08) 0%, transparent 55%),
+    linear-gradient(180deg, #060e1a 0%, #091a0b 62%, #0b2010 100%);
+}
+.star { position:absolute; background:#fff; border-radius:50%; animation:tw var(--d,2s) var(--dl,0s) infinite alternate; }
+@keyframes tw { from{opacity:.1} to{opacity:.85} }
+#moon  { position:absolute; top:9%; right:11%; font-size:56px; pointer-events:none; filter:drop-shadow(0 0 22px rgba(255,215,80,.55)); }
+#trees { position:absolute; bottom:0; left:0; right:0; height:40%; pointer-events:none; }
+.tree  { position:absolute; bottom:0; line-height:1; }
+#mist  { position:absolute; bottom:0; left:0; right:0; height:22%; background:linear-gradient(to top,rgba(10,32,16,.72) 0%,transparent 100%); pointer-events:none; z-index:2; }
+.owl { position:absolute; transform:translate(-50%,-50%); font-size:40px; line-height:1; z-index:10; pointer-events:none; transition:opacity .22s ease,transform .22s ease,filter .22s ease; }
+.owl.hidden { opacity:0; transform:translate(-50%,-50%) scale(.65); }
+.owl.found  { opacity:1 !important; transform:translate(-50%,-50%) scale(1) !important; filter:drop-shadow(0 0 14px #ffd700) !important; animation:owlPop .42s ease; }
+@keyframes owlPop { 0%{transform:translate(-50%,-50%) scale(.3)} 65%{transform:translate(-50%,-50%) scale(1.35)} 100%{transform:translate(-50%,-50%) scale(1)} }
+.fb { position:absolute; font-size:30px; pointer-events:none; z-index:25; transform:translate(-50%,-50%); animation:fbFloat .68s ease forwards; }
+@keyframes fbFloat { 0%{opacity:1;transform:translate(-50%,-50%) scale(.5)} 45%{opacity:1;transform:translate(-50%,-78%) scale(1.2)} 100%{opacity:0;transform:translate(-50%,-112%) scale(.85)} }
+.pt { position:absolute; border-radius:50%; pointer-events:none; z-index:22; animation:ptFly var(--dur,.48s) ease forwards; }
+@keyframes ptFly { to{opacity:0;transform:var(--to)} }
+
+/* HUD — 与喂金鱼完全一致 */
+#hud {
+  position:absolute; top:0; left:0; right:0; z-index:50;
+  display:flex; justify-content:flex-start; align-items:center; gap:10px;
+  padding:max(10px, env(safe-area-inset-top,10px))
+          max(100px, calc(env(safe-area-inset-right,0px) + 88px))
+          10px
+          max(16px, env(safe-area-inset-left,16px));
+  background:linear-gradient(to bottom,rgba(6,14,26,.95) 70%,transparent);
+  pointer-events:none;
+}
+/* 胶囊 — 与喂金鱼 .pill 完全一致 */
+.g-pill {
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  height:38px; padding:0 16px; box-sizing:border-box;
+  background:rgba(0,0,0,.5); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  border:1.5px solid rgba(255,255,255,.25); border-radius:19px;
+  font:700 14px/1 'PingFang SC','Microsoft YaHei',sans-serif;
+  color:#fff; transition:color .3s, border-color .3s;
+  pointer-events:auto;
+}
+#timer-val { font-size:18px; font-weight:700; color:var(--lime); transition:color .3s; }
+#timer-val.urgent { color:#ff5050; animation:timerBlink .45s infinite alternate; }
+.g-pill.urgent { color:#ff5050; border-color:rgba(255,80,80,.45); }
+@keyframes timerBlink { to{transform:scale(1.18)} }
+/* 底部提示胶囊 — 与记忆方块 #hint-pill 一致 */
+#owl-hint {
+  position:absolute; bottom:18px; left:50%; transform:translateX(-50%);
+  z-index:50; display:none; align-items:center;
+  background:rgba(0,0,0,.48); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  padding:8px 20px; border-radius:22px;
+  font-size:14px; font-weight:700; color:rgba(255,255,255,.88);
+  border:1px solid rgba(255,255,255,.15);
+  max-width:calc(100% - 48px); text-align:center;
+  transition:color .3s, border-color .3s;
+}
+#prog-wrap { position:absolute; bottom:0; left:0; right:0; height:5px; background:rgba(255,255,255,.08); z-index:50; }
+#prog { height:100%; width:100%; background:var(--lime); transition:width 1s linear,background .5s; }
+#prog.urgent { background:#ff5050; }
+
+/* ════════════════════════════════
+   RESULT SCREEN
+════════════════════════════════ */
+#resultScreen { background:rgba(6,14,26,.92); backdrop-filter:blur(8px); justify-content:center; gap:16px; }
+.result-emoji { font-size:68px; animation:bounceIn .5s cubic-bezier(.34,1.56,.64,1); }
+@keyframes bounceIn { from{transform:scale(.2);opacity:0} to{transform:scale(1);opacity:1} }
+.result-title        { font-size:26px; font-weight:800; letter-spacing:2px; }
+.result-title.win    { color:var(--gold); animation:shimmer 1.5s infinite alternate; }
+.result-title.lose   { color:rgba(255,255,255,.7); }
+@keyframes shimmer { from{text-shadow:none} to{text-shadow:0 0 20px #ffd700,0 0 40px #ffaa00} }
+.res-subtitle { font-size:13px; color:rgba(255,255,255,.4); letter-spacing:1px; }
+.result-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; width:100%; max-width:280px; }
+.res-card     { background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:13px 8px; text-align:center; }
+.res-card-lbl { font-size:11px; color:rgba(180,220,160,.6); margin-bottom:5px; letter-spacing:.5px; }
+.res-card-val { font-size:22px; font-weight:700; color:#d8c890; }
+.res-card-val.hl { color:var(--gold); }
+.btn-row-res  { display:flex; gap:12px; }
+.gbtn-primary   { padding:13px 32px; background:linear-gradient(135deg,#3ea83e,#1a5c1a); color:#fff; border:none; border-radius:50px; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 4px 18px rgba(62,168,62,.4); transition:all .15s; }
+.gbtn-primary:active { transform:scale(.95); }
+.gbtn-secondary { padding:12px 26px; background:rgba(255,255,255,.1); color:rgba(255,255,255,.8); border:1.5px solid rgba(255,255,255,.24); border-radius:50px; font-size:14px; cursor:pointer; transition:all .15s; }
+.gbtn-secondary:active { transform:scale(.95); }
+
+/* ─── Pause ─── */
+/* 暂停按钮 — 与喂金鱼 #pauseBtn 完全一致 */
+#pauseBtn {
+  position:absolute;
+  top:max(10px, env(safe-area-inset-top, 10px));
+  right:max(12px, env(safe-area-inset-right, 12px));
+  left:auto; bottom:auto;
+  z-index:200; display:none;
+  height:38px; padding:0 16px; border-radius:19px;
+  border:1.5px solid rgba(255,255,255,.25);
+  background:rgba(0,0,0,.5); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  color:#fff; font-size:14px; font-weight:700;
+  font-family:'PingFang SC','Microsoft YaHei',sans-serif; letter-spacing:2px;
+  cursor:pointer; align-items:center; justify-content:center;
+}
+#pauseOverlay { position:fixed; inset:0; z-index:300; display:none; flex-direction:column; align-items:center; justify-content:center; gap:16px; background:rgba(0,0,0,.72); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); font-family:'PingFang SC','Microsoft YaHei',sans-serif; }
+#pauseOverlay .po-icon  { font-size:48px; }
+#pauseOverlay .po-title { font-size:22px; font-weight:700; color:#fff; margin-bottom:8px; }
+#pauseOverlay .po-btn   { width:180px; padding:13px 0; border-radius:50px; font-size:15px; font-weight:600; cursor:pointer; text-align:center; display:block; transition:opacity .15s; border:none; }
+#pauseOverlay .po-btn:hover  { opacity:.85; }
+#pauseOverlay .po-resume { background:linear-gradient(135deg,#3ea83e,#1a5c1a); color:#fff; box-shadow:0 4px 16px rgba(62,168,62,.4); }
+#pauseOverlay .po-home   { background:rgba(255,255,255,.12); color:rgba(255,255,255,.85); border:1.5px solid rgba(255,255,255,.25) !important; }
+</style>
+</head>
+<body>
+
+<!-- 暂停按钮 & 遮罩 -->
+<button id="pauseBtn" onclick="togglePause()">暂 停</button>
+<div id="pauseOverlay">
+  <div class="po-icon">🦉</div>
+  <div class="po-title">游戏已暂停</div>
+  <button class="po-btn po-resume" onclick="togglePause()">继续游戏</button>
+  <button class="po-btn po-home"   onclick="goBackHome()">回到主页</button>
+</div>
+
+<!-- ═══════════════════════════════
+     HOME SCREEN
+═══════════════════════════════ -->
+<div id="homeScreen" class="screen">
+  <a href="index.html" class="home-index-btn">🏠 游戏列表</a>
+  <div class="home-body">
+    <div class="icon-wrap">🦉</div>
+    <div class="game-name">寻找猫头鹰</div>
+    <div class="game-sub">在黑暗森林中，找出所有猫头鹰</div>
+    <div class="guide-card">
+      <div class="guide-line">🦉 <span>猫头鹰会<strong>短暂现身</strong>，快速记住它的位置</span></div>
+      <div class="guide-line">👆 <span>在正确的位置<strong>点击</strong>，找到它就算成功</span></div>
+      <div class="guide-line">⏱ <span>每局限时，尽可能<strong>找到更多猫头鹰</strong></span></div>
+      <div class="guide-line">🎯 <span>命中率越高，<em>评分越好！</em></span></div>
+    </div>
+    <div class="diff-label">选择难度</div>
+    <div class="diff-group">
+      <button class="diff-btn" data-owls="3" data-time="90">🦉 简单<small>3只·90秒</small></button>
+      <button class="diff-btn active" data-owls="5" data-time="60">🦉🦉 普通<small>5只·60秒</small></button>
+      <button class="diff-btn" data-owls="8" data-time="45">🦉🦉🦉 困难<small>8只·45秒</small></button>
+    </div>
+    <button class="btn-start" id="startBtn">开 始 挑 战</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+     TUTORIAL SCREEN
+═══════════════════════════════ -->
+<div id="tutScreen" class="screen hidden">
+  <div class="tut-body">
+    <div class="tut-topbar">
+      <div class="tut-back" id="tutBack">返回</div>
+      <div class="tut-progress"><div class="tut-fill" id="tutFill" style="width:20%"></div></div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="tut-cnt" id="tutCnt">1 / 5</div>
+        <div class="tut-skip" id="tutSkip">跳过</div>
+      </div>
+    </div>
+
+    <!-- Panel 1: 游戏目标 -->
+    <div class="tut-panel active" id="p1">
+      <div class="demo-box">
+        <div class="d1-scene">
+          <div class="d1-moon">🌕</div>
+          <div class="d1-owl">🦉</div>
+          <div class="d1-trees">🌲🌲🌲🌲🌲</div>
+        </div>
+        <div class="d1-tag">🦉 找到它！</div>
+      </div>
+      <div class="step-head">🌙 游戏目标</div>
+      <div class="step-body">夜晚的森林里藏着若干只<strong>猫头鹰</strong>，<br>它们会<strong>短暂现身</strong>又消失，<br>你的任务是在正确位置<strong>点击找到它们</strong>！</div>
+    </div>
+
+    <!-- Panel 2: 现身规律 -->
+    <div class="tut-panel" id="p2">
+      <div class="demo-box">
+        <div class="d2-wrap">
+          <div class="d2-left">
+            <div class="d2-owl">🦉</div>
+            <div class="d2-badge">👁 现身中</div>
+          </div>
+          <div class="d2-arrow">→</div>
+          <div class="d2-ring-wrap">
+            <svg class="d2-svg" viewBox="0 0 82 82">
+              <circle class="d2-track" cx="41" cy="41" r="34"/>
+              <circle class="d2-arc"   cx="41" cy="41" r="34"/>
+            </svg>
+            <div class="d2-num" id="d2Num">2</div>
+            <div class="d2-label">秒后消失</div>
+          </div>
+        </div>
+      </div>
+      <div class="step-head">👁 现身规律</div>
+      <div class="step-body">猫头鹰会<strong>随机出现约 2 秒</strong>，<br>然后<strong>消失躲回黑暗</strong>，<br>趁它现身时<strong>快速点击</strong>！</div>
+    </div>
+
+    <!-- Panel 3: 点中 vs 点空 -->
+    <div class="tut-panel" id="p3">
+      <div class="demo-box">
+        <div class="d3-outer">
+          <div class="d3-row">
+            <div class="d3-side">
+              <div class="d3-spot d3-correct">🦉</div>
+              <span class="d3-finger">👆</span>
+              <div class="d3-lbl yes">🎯 点中了</div>
+            </div>
+            <div class="d3-vs">VS</div>
+            <div class="d3-side">
+              <div class="d3-spot d3-wrong">🌿</div>
+              <span class="d3-finger delay">👆</span>
+              <div class="d3-lbl no">❌ 点空了</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="step-head">👆 点击捕捉</div>
+      <div class="step-body">猫头鹰现身时，<strong>精准点击它</strong>：<br><span class="good">点中 → 金色闪光 🦉✨</span><br><span class="danger">点空 → 消耗机会 ❌</span><br>命中率越高越好！</div>
+    </div>
+
+    <!-- Panel 4: 计分规则 -->
+    <div class="tut-panel" id="p4">
+      <div class="demo-box">
+        <div class="s4-wrap">
+          <div class="s4-rule"><div class="s4-icon">🦉</div><div class="s4-text">每找到一只猫头鹰 <strong>+1 计数</strong>，找到越多越好！</div></div>
+          <div class="s4-rule"><div class="s4-icon">🎯</div><div class="s4-text">命中率 = 点中次数 ÷ 总点击，<span class="ok">越高评价越好！</span></div></div>
+          <div class="s4-rule"><div class="s4-icon">⏱</div><div class="s4-text">限时结束时显示结果，全部找到可<strong>提前完成！</strong></div></div>
+        </div>
+      </div>
+      <div class="step-head">📊 评分规则</div>
+      <div class="step-body">找到更多猫头鹰 + 保持高命中率，<br>就能拿到最佳评价！<br>力求<strong>又准又快</strong>！</div>
+    </div>
+
+    <!-- Panel 5: 动手试试 -->
+    <div class="tut-panel" id="p5">
+      <div class="p5-zone">
+        <div class="p5-hint-title">👆 来试一试</div>
+        <div class="p5-hint-sub">猫头鹰出现后，快速点击找到它！</div>
+        <div class="p5-arena" id="p5Arena">
+          <div class="p5-arena-moon">🌕</div>
+          <div class="p5-arena-bg">🌲🌲🌲🌲🌲</div>
+        </div>
+        <div class="p5-msg"    id="p5Msg"></div>
+        <div class="p5-status" id="p5Status">正在准备…</div>
+        <div class="p5-go-text" id="p5GoText">GO!</div>
+      </div>
+      <div class="step-head">🖐 动手试试看</div>
+      <div class="step-body">等猫头鹰出现，<br>点击<strong>正确的位置</strong>来练习一下！</div>
+    </div>
+
+    <div class="tut-nav">
+      <button class="btn-prev" id="btnPrev" onclick="tutPrev()">上一步</button>
+      <button class="btn-next" id="btnNext" onclick="tutNext()">下一步 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+     GAME CONTAINER
+═══════════════════════════════ -->
+<div id="gameContainer">
+  <div id="scene">
+    <div id="moon">🌕</div>
+    <div id="trees"></div>
+    <div id="mist"></div>
+  </div>
+  <div id="hud">
+    <div class="g-pill">🦉 <span id="h-found">0</span>/<span id="h-total">5</span></div>
+    <div class="g-pill" id="timerPill">⏱ <span id="timer-val">60</span>s</div>
+    <div class="g-pill">👆 <span id="h-clicks">0</span></div>
+  </div>
+  <div id="prog-wrap"><div id="prog"></div></div>
+  <div id="owl-hint">👀 点击现身的猫头鹰…</div>
+</div>
+
+<!-- ═══════════════════════════════
+     RESULT SCREEN
+═══════════════════════════════ -->
+<div id="resultScreen" class="screen hidden">
+  <div class="result-emoji" id="res-emoji">🎉</div>
+  <div class="result-title"  id="res-title">太棒了！</div>
+  <div class="res-subtitle"  id="res-subtitle"></div>
+  <div class="result-grid">
+    <div class="res-card"><div class="res-card-lbl">找到猫头鹰</div><div class="res-card-val hl" id="r-found">0</div></div>
+    <div class="res-card"><div class="res-card-lbl">点击次数</div><div class="res-card-val"    id="r-clicks">0</div></div>
+    <div class="res-card"><div class="res-card-lbl">命中率</div><div class="res-card-val hl"   id="r-acc">-</div></div>
+    <div class="res-card"><div class="res-card-lbl">剩余时间</div><div class="res-card-val"    id="r-time">0s</div></div>
+  </div>
+  <div class="btn-row-res">
+    <button class="gbtn-secondary" onclick="goBackHome()">回到主页</button>
+    <button class="gbtn-primary"   onclick="restartGame()">再玩一次</button>
+  </div>
+</div>
+
+<!-- 游戏列表按钮（仅首页可见，JS 控制） -->
+<a href="index.html" id="homeBtn"
+   style="position:fixed;top:12px;left:12px;z-index:9999;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:13px;font-weight:600;padding:7px 14px;border-radius:20px;cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:5px;transition:background .15s;">
+  🏠 游戏列表
+</a>
+
+<script>
+'use strict';
+
+/* ── CONFIG ── */
+const C = { owls:5, totalTime:60, visMs:2000, hidMs:1000, radius:44, staggerMax:2400 };
+
+/* ── STATE ── */
+let st = {};
+let _owlPaused = false;
+let selOwls = 5, selTime = 60;
+let tutStep = 1;
+const TUT_STEPS = 5;
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   屏幕管理
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  /* game 不是 .screen 元素，单独控制 */
+  const inGame = (id === 'game' || id === 'resultScreen');
+  document.getElementById('gameContainer').classList.toggle('active', inGame);
+  if (id !== 'game') {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('hidden');
+  }
+  /* 游戏列表按钮仅首页 */
+  document.getElementById('homeBtn').style.display = (id === 'homeScreen') ? 'flex' : 'none';
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   首页交互
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+document.querySelectorAll('.diff-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selOwls = +btn.dataset.owls;
+    selTime = +btn.dataset.time;
+  });
+});
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  showScreen('tutScreen');
+  tutStep = 1;
+  refreshTut();
+});
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   引导导航
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+document.getElementById('tutBack').addEventListener('click', () => { stopP5(); showScreen('homeScreen'); });
+document.getElementById('tutSkip').addEventListener('click', () => { stopP5(); launchGame(); });
+
+function tutNext() { if (tutStep < TUT_STEPS) { tutStep++; refreshTut(); } else launchGame(); }
+function tutPrev() { if (tutStep > 1) { tutStep--; refreshTut(); } }
+
+function refreshTut() {
+  for (let i = 1; i <= TUT_STEPS; i++) {
+    document.getElementById(`p${i}`).classList.toggle('active', i === tutStep);
+  }
+  document.getElementById('tutFill').style.width = `${(tutStep / TUT_STEPS) * 100}%`;
+  document.getElementById('tutCnt').textContent  = `${tutStep} / ${TUT_STEPS}`;
+  document.getElementById('btnPrev').style.visibility = tutStep > 1 ? 'visible' : 'hidden';
+  const next = document.getElementById('btnNext');
+  if (tutStep === TUT_STEPS) { next.textContent = '✓ 开始挑战！'; next.classList.add('final'); }
+  else                        { next.textContent = '下一步 →';   next.classList.remove('final'); }
+  if (tutStep === 5) startP5Round(); else stopP5();
+}
+
+/* ── Step 2 倒计时数字 ── */
+let _d2t = 2.0;
+setInterval(() => {
+  _d2t -= 0.02;
+  if (_d2t <= 0) _d2t = 2.0;
+  const el = document.getElementById('d2Num');
+  if (el) el.textContent = Math.max(0, Math.ceil(_d2t));
+}, 20);
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Step 5 互动试玩
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+let _p5Phase = 'idle', _p5Tid = null, _p5OwlEl = null;
+
+function startP5Round() {
+  stopP5();
+  const arena = document.getElementById('p5Arena');
+  const old = arena.querySelector('.p5-owl');
+  if (old) old.remove();
+  _p5Phase = 'idle';
+  setP5Msg(''); setP5Status('准备好了吗？', false);
+
+  _p5Tid = setTimeout(() => {
+    const x = 15 + Math.random() * 70;
+    const y = 20 + Math.random() * 55;
+    const owlEl = document.createElement('div');
+    owlEl.className = 'p5-owl hidden';
+    owlEl.style.left = x + '%'; owlEl.style.top = y + '%';
+    owlEl.textContent = '🦉';
+    arena.appendChild(owlEl);
+    _p5OwlEl = owlEl;
+    _p5Phase = 'showing';
+
+    /* 显示 GO! */
+    const go = document.getElementById('p5GoText');
+    go.classList.remove('show'); void go.offsetWidth; go.classList.add('show');
+    setTimeout(() => { go.classList.remove('show'); }, 700);
+
+    setTimeout(() => {
+      owlEl.classList.remove('hidden');
+      setP5Status('👁 现身了！快点击！', true);
+      owlEl.addEventListener('click', _p5Click, { once: true });
+
+      _p5Tid = setTimeout(() => {
+        if (_p5Phase === 'showing') {
+          owlEl.classList.add('hidden');
+          owlEl.removeEventListener('click', _p5Click);
+          _p5Phase = 'missed';
+          setP5Msg('😅 没点到，再试一次！');
+          setP5Status('', false);
+          _p5Tid = setTimeout(() => startP5Round(), 1800);
+        }
+      }, 2000);
+    }, 700);
+  }, 900);
+}
+
+function _p5Click() {
+  if (_p5Phase !== 'showing') return;
+  clearTimeout(_p5Tid);
+  _p5Phase = 'found';
+  _p5OwlEl.classList.add('found');
+  setP5Msg('🎉 找到了！太棒了！');
+  setP5Status('', false);
+  _p5Tid = setTimeout(() => startP5Round(), 2200);
+}
+
+function stopP5() {
+  if (_p5Tid) { clearTimeout(_p5Tid); _p5Tid = null; }
+  _p5Phase = 'idle';
+}
+function setP5Msg(t) {
+  const el = document.getElementById('p5Msg');
+  if (t) { el.textContent = t; el.classList.add('show'); }
+  else   { el.classList.remove('show'); el.textContent = ''; }
+}
+function setP5Status(t, a) {
+  const el = document.getElementById('p5Status');
+  el.textContent = t; el.className = 'p5-status' + (a ? ' active' : '');
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   启动游戏
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function launchGame() {
+  stopP5();
+  C.owls = selOwls; C.totalTime = selTime;
+  showScreen('game');
+  startGame();
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   音效
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const actx = new (window.AudioContext || window.webkitAudioContext)();
+function tone(freq, type, dur, vol = .25) {
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.connect(g); g.connect(actx.destination);
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol, actx.currentTime);
+  g.gain.exponentialRampToValueAtTime(.001, actx.currentTime + dur);
+  o.start(); o.stop(actx.currentTime + dur);
+}
+const sfxOk   = () => { tone(523,'sine',.11); setTimeout(()=>tone(659,'sine',.11),85); setTimeout(()=>tone(784,'sine',.22),170); };
+const sfxBad  = () => tone(175,'square',.09,.13);
+const sfxWin  = () => [523,659,784,1047].forEach((f,i) => setTimeout(()=>tone(f,'sine',.3),i*115));
+const sfxLose = () => { tone(300,'sawtooth',.18,.18); setTimeout(()=>tone(200,'sawtooth',.28,.15),200); };
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   场景构建
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const sc = document.getElementById('scene');
+
+function buildStars() {
+  sc.querySelectorAll('.star').forEach(el => el.remove());
+  for (let i = 0; i < 48; i++) {
+    const el = document.createElement('div'); el.className = 'star';
+    const sz = .7 + Math.random() * 2.3;
+    el.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*50}%;--d:${1.3+Math.random()*2.2}s;--dl:${Math.random()*2}s;opacity:.4`;
+    sc.insertBefore(el, document.getElementById('moon'));
+  }
+}
+
+function buildTrees() {
+  const wrap = document.getElementById('trees'); wrap.innerHTML = '';
+  [[1,55,.28],[7,68,.34],[14,52,.28],[20,82,.52],[28,62,.44],[34,44,.3],
+   [40,92,.62],[48,58,.42],[55,74,.5],[62,50,.36],[68,88,.58],[75,64,.46],
+   [82,56,.38],[88,78,.5],[94,48,.3],[98,70,.44]].forEach(([pct,sz,op]) => {
+    const t = document.createElement('div'); t.className = 'tree';
+    t.style.cssText = `left:${pct}%;font-size:${sz}px;opacity:${op}`;
+    t.textContent = '🌲'; wrap.appendChild(t);
+  });
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   猫头鹰管理
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function genPositions() {
+  const W = sc.clientWidth, H = sc.clientHeight;
+  const mg = 58, minD = 92, maxY = H * .70;
+  const pts = []; let tries = 0;
+  while (pts.length < C.owls && tries++ < 3000) {
+    const x = mg + Math.random()*(W-2*mg), y = mg + Math.random()*(maxY-mg);
+    if (pts.every(p => Math.hypot(p.x-x, p.y-y) >= minD)) pts.push({x, y});
+  }
+  return pts;
+}
+
+function spawnOwl(id, x, y) {
+  const el = document.createElement('div');
+  el.className = 'owl hidden'; el.style.left = x+'px'; el.style.top = y+'px'; el.textContent = '🦉';
+  sc.appendChild(el);
+  const owl = { id, x, y, el, found:false, tid:null };
+  owl.tid = setTimeout(() => owlCycle(owl), Math.random()*C.staggerMax);
+  return owl;
+}
+
+function owlCycle(owl) {
+  if (!st.active || owl.found) return;
+  owl.el.classList.remove('hidden');
+  owl.tid = setTimeout(() => {
+    if (!st.active || owl.found) return;
+    owl.el.classList.add('hidden');
+    owl.tid = setTimeout(() => owlCycle(owl), C.hidMs);
+  }, C.visMs);
+}
+
+function stopOwls() { (st.owls || []).forEach(o => clearTimeout(o.tid)); }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   输入处理
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function onInput(cx, cy) {
+  if (!st.active || _owlPaused) return;
+  const r = sc.getBoundingClientRect();
+  const x = cx - r.left, y = cy - r.top;
+  st.clicks++; document.getElementById('h-clicks').textContent = st.clicks;
+  const hit = st.owls.find(o => !o.found && Math.hypot(o.x-x, o.y-y) <= C.radius);
+  if (hit) {
+    st.correct++; hit.found = true; clearTimeout(hit.tid);
+    hit.el.classList.remove('hidden'); hit.el.classList.add('found');
+    st.found++; document.getElementById('h-found').textContent = st.found;
+    updateOwlHint();
+    showFB(x, y, '🦉'); spawnParticles(x, y); sfxOk();
+    if (st.found >= C.owls) setTimeout(() => endGame(true), 380);
+  } else { showFB(x, y, '❌'); sfxBad(); }
+}
+
+sc.addEventListener('click', e => onInput(e.clientX, e.clientY));
+sc.addEventListener('touchstart', e => {
+  e.preventDefault();
+  onInput(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+}, { passive:false });
+
+function showFB(x, y, ch) {
+  const fb = document.createElement('div');
+  fb.className = 'fb'; fb.textContent = ch; fb.style.left = x+'px'; fb.style.top = y+'px';
+  sc.appendChild(fb); setTimeout(() => fb.remove(), 680);
+}
+
+function spawnParticles(x, y) {
+  const cols = ['#ffd700','#ffb800','#ff8800','#ffe566','#ffcc33'];
+  for (let i = 0; i < 14; i++) {
+    const p = document.createElement('div'); p.className = 'pt';
+    const a = Math.PI*2*i/14, d = 38+Math.random()*48, dur = (.36+Math.random()*.3)+'s';
+    p.style.cssText = `width:6px;height:6px;background:${cols[i%5]};left:${x}px;top:${y}px;--dur:${dur};--to:translate(${Math.cos(a)*d}px,${Math.sin(a)*d}px) scale(0)`;
+    sc.appendChild(p); setTimeout(() => p.remove(), 720);
+  }
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   计时器
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function startTimer() {
+  clearInterval(st.interval);
+  st.interval = setInterval(() => {
+    if (_owlPaused) return;
+    st.time--;
+    document.getElementById('timer-val').textContent = st.time;
+    document.getElementById('prog').style.width = (st.time / C.totalTime * 100) + '%';
+    if (st.time <= 10) {
+      document.getElementById('timer-val').classList.add('urgent');
+      document.getElementById('prog').classList.add('urgent');
+      document.getElementById('timerPill').classList.add('urgent');
+    }
+    if (st.time <= 0) endGame(false);
+  }, 1000);
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   暂停 / 回首页
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+window.togglePause = function() {
+  if (!st.active) return;
+  _owlPaused = !_owlPaused;
+  document.getElementById('pauseOverlay').style.display = _owlPaused ? 'flex' : 'none';
+  if (_owlPaused) clearInterval(st.interval); else startTimer();
+};
+
+window.goBackHome = function() {
+  _owlPaused = false;
+  if (st.active) { st.active = false; clearInterval(st.interval); stopOwls(); }
+  document.getElementById('pauseOverlay').style.display = 'none';
+  document.getElementById('pauseBtn').style.display = 'none';
+  document.getElementById('owl-hint').style.display = 'none';
+  sc.querySelectorAll('.owl,.star').forEach(el => el.remove());
+  showScreen('homeScreen');
+};
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   游戏流程
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function updateOwlHint() {
+  const el = document.getElementById('owl-hint');
+  const rem = C.owls - st.found;
+  el.textContent = rem > 0
+    ? `已找到 ${st.found} / ${C.owls} 只 · 还剩 ${rem} 只未找到`
+    : `🎉 全部找到了！`;
+}
+
+function startGame() {
+  sc.querySelectorAll('.owl,.star').forEach(el => el.remove());
+  clearInterval(st.interval); stopOwls(); _owlPaused = false;
+  document.getElementById('pauseOverlay').style.display = 'none';
+  st = { active:false, owls:[], clicks:0, correct:0, found:0, time:C.totalTime, interval:null };
+  document.getElementById('h-found').textContent   = 0;
+  document.getElementById('h-total').textContent   = C.owls;
+  document.getElementById('h-clicks').textContent  = 0;
+  document.getElementById('timer-val').textContent = C.totalTime;
+  document.getElementById('timer-val').classList.remove('urgent');
+  document.getElementById('timerPill').classList.remove('urgent');
+  document.getElementById('prog').style.width = '100%';
+  document.getElementById('prog').classList.remove('urgent');
+  document.getElementById('pauseBtn').style.display = 'flex';
+  document.getElementById('owl-hint').style.display = 'flex';
+  updateOwlHint();
+  buildStars(); buildTrees();
+  requestAnimationFrame(() => {
+    const pos = genPositions();
+    st.owls = pos.map((p, i) => spawnOwl(i, p.x, p.y));
+    st.active = true; startTimer();
+  });
+}
+
+function endGame(win) {
+  if (!st.active) return;
+  st.active = false;
+  document.getElementById('pauseBtn').style.display = 'none';
+  document.getElementById('owl-hint').style.display = 'none';
+  clearInterval(st.interval); stopOwls();
+  st.owls.filter(o => !o.found).forEach(o => { o.el.classList.remove('hidden'); o.el.style.opacity = '.22'; });
+  if (win) sfxWin(); else sfxLose();
+  setTimeout(() => showResult(win), 950);
+}
+
+function showResult(win) {
+  document.getElementById('res-emoji').textContent = win ? '🎉' : '⏰';
+  const titleEl = document.getElementById('res-title');
+  titleEl.textContent = win ? '全部找到了！' : '时间到了！';
+  titleEl.className = 'result-title ' + (win ? 'win' : 'lose');
+  document.getElementById('res-subtitle').textContent = `找到 ${st.found}/${C.owls} 只猫头鹰`;
+  document.getElementById('r-found').textContent  = `${st.found}/${C.owls}`;
+  document.getElementById('r-clicks').textContent = st.clicks;
+  document.getElementById('r-acc').textContent    = st.clicks ? Math.round(st.correct/st.clicks*100)+'%' : '-';
+  document.getElementById('r-time').textContent   = st.time + 's';
+  showScreen('resultScreen');
+}
+
+window.restartGame = function() { showScreen('game'); startGame(); };
+
+/* ── 初始化 ── */
+document.getElementById('homeBtn').style.display = 'flex';
+const _hBtn = document.getElementById('homeBtn');
+_hBtn.onmouseover = function() { this.style.background='rgba(0,0,0,.8)'; };
+_hBtn.onmouseout  = function() { this.style.background='rgba(0,0,0,.55)'; };
+</script>
+</body>
+</html>

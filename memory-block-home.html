@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>记忆方块</title>
+<style>
+/* ════════════════════════════════
+   STEP 5 – 互动试玩区
+════════════════════════════════ */
+.p5-zone {
+  width:100%; border:2px dashed rgba(34,211,238,.3);
+  border-radius:20px; padding:18px 16px 14px;
+  display:flex; flex-direction:column; align-items:center; gap:10px;
+  background:rgba(0,20,50,.38); margin-bottom:22px;
+  position:relative; overflow:hidden;
+}
+.p5-hint-title { font-size:16px; font-weight:700; color:rgba(255,255,255,.9); display:flex; align-items:center; gap:7px; }
+.p5-hint-sub { font-size:13px; color:rgba(180,220,255,.6); }
+.p5-mini-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+.p5-cell {
+  width:52px; height:52px; border-radius:10px;
+  background:rgba(255,255,255,.07); border:1.5px solid rgba(255,255,255,.1);
+  cursor:default; touch-action:manipulation;
+  transition:background .2s, box-shadow .2s, border-color .2s, transform .15s;
+}
+.p5-cell.clickable { cursor:pointer; }
+.p5-cell.clickable:active { transform:scale(.88); }
+.p5-cell.lit {
+  background:linear-gradient(135deg, #0ea5e9, #2563eb); border-color:#38bdf8;
+  box-shadow:0 0 18px rgba(14,165,233,.7), inset 0 1px 0 rgba(255,255,255,.28);
+  animation:p5CellAppear .25s ease;
+}
+@keyframes p5CellAppear { from{transform:scale(.7);opacity:0} to{transform:scale(1);opacity:1} }
+.p5-cell.correct {
+  background:linear-gradient(135deg, #0ea5e9, #2563eb); border-color:#38bdf8;
+  box-shadow:0 0 18px rgba(14,165,233,.7); animation:p5PopIn .28s ease;
+}
+@keyframes p5PopIn { 0%{transform:scale(.8)} 60%{transform:scale(1.15)} 100%{transform:scale(1)} }
+.p5-cell.wrong {
+  background:linear-gradient(135deg, #ef4444, #b91c1c); border-color:#f87171;
+  box-shadow:0 0 16px rgba(239,68,68,.7); animation:p5Shake .32s ease;
+}
+@keyframes p5Shake {
+  0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)}
+  40%{transform:translateX(5px)} 60%{transform:translateX(-3px)} 80%{transform:translateX(3px)}
+}
+.p5-msg {
+  font-size:15px; font-weight:700; color:var(--green);
+  opacity:0; transform:translateY(8px);
+  transition:opacity .3s, transform .3s; min-height:22px; text-align:center;
+}
+.p5-msg.show { opacity:1; transform:translateY(0); }
+.p5-status {
+  font-size:13px; color:rgba(180,220,255,.5); min-height:18px; text-align:center;
+  animation:p5StatusBlink 1.6s ease-in-out infinite;
+}
+.p5-status.active { animation:none; color:rgba(129,140,248,.95); font-weight:600; }
+@keyframes p5StatusBlink { 0%,100%{opacity:.5} 50%{opacity:1} }
+.p5-go-text {
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font-size:72px; font-weight:900;
+  background:linear-gradient(135deg, #34d399, #22d3ee);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  pointer-events:none; opacity:0;
+}
+.p5-go-text.show { animation:p5GoAnim .7s ease forwards; }
+@keyframes p5GoAnim {
+  0%{opacity:0;transform:scale(.35)} 40%{opacity:1;transform:scale(1.18)}
+  70%{opacity:1;transform:scale(.92)} 100%{opacity:0;transform:scale(1.45)}
+}
+
+/* ─── Reset & Base ─── */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; }
+html, body {
+  width:100%; height:100%; overflow:hidden; background:#060d18; color:#fff;
+  font-family:'PingFang SC','Microsoft YaHei','Noto Sans SC',Arial,sans-serif;
+}
+:root {
+  --safe-top: max(20px, env(safe-area-inset-top, 20px));
+  --safe-bot: max(24px, env(safe-area-inset-bottom, 24px));
+  --cyan:#22d3ee; --purple:#818cf8; --green:#22CC66; --red:#ef4444; --gold:#fbbf24;
+}
+
+/* ─── 背景网格 ─── */
+.bg-grid {
+  position:fixed; inset:0; pointer-events:none; z-index:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
+  background-size:44px 44px;
+}
+
+/* ─── Screen container ─── */
+.screen {
+  position:fixed; inset:0; z-index:1;
+  display:flex; flex-direction:column; align-items:center;
+  overflow-y:auto; overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  transition:opacity .35s ease, transform .35s ease;
+}
+.screen.hidden { opacity:0; pointer-events:none; transform:scale(.96); }
+
+/* ════════════════════════════════
+   HOME SCREEN
+════════════════════════════════ */
+#homeScreen {
+  background:
+    radial-gradient(ellipse 120% 50% at 50% 0%, rgba(34,211,238,.12) 0%, transparent 55%),
+    linear-gradient(180deg, #060d18 0%, #0a1628 50%, #060d18 100%);
+}
+.home-body {
+  position:relative; z-index:1; width:100%; max-width:420px;
+  padding:var(--safe-top) 22px var(--safe-bot);
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:center; min-height:100%;
+}
+.icon-wrap {
+  width:88px; height:88px; margin:8px auto 14px;
+  background:linear-gradient(145deg,rgba(34,211,238,.22),rgba(129,140,248,.18));
+  border:2px solid rgba(34,211,238,.26); border-radius:26px;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 12px 36px rgba(34,211,238,.2),inset 0 1px 0 rgba(255,255,255,.14),0 0 50px rgba(129,140,248,.1);
+  animation:iconBob 3.8s ease-in-out infinite;
+}
+@keyframes iconBob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)} }
+.icon-mini-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; width:54px; height:54px; }
+.icon-mini-cell { border-radius:4px; background:rgba(255,255,255,.13); transition:background .35s, box-shadow .35s; }
+.icon-mini-cell.lit { background:linear-gradient(135deg, #22d3ee, #818cf8); box-shadow:0 0 6px rgba(34,211,238,.7); }
+.game-name {
+  font-size:36px; font-weight:900;
+  background:linear-gradient(135deg, #22d3ee, #a78bfa);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  letter-spacing:8px; text-align:center; margin-bottom:6px;
+}
+.game-sub { font-size:13px; color:rgba(160,215,255,.58); letter-spacing:1.5px; text-align:center; margin-bottom:24px; }
+.guide-card {
+  width:100%; background:rgba(0,0,0,.32); border:1px solid rgba(255,255,255,.11);
+  border-radius:16px; padding:16px 20px; margin-bottom:22px;
+}
+.guide-line { display:flex; align-items:baseline; gap:9px; font-size:14.5px; color:rgba(255,255,255,.78); line-height:2.05; }
+.guide-line strong { color:var(--cyan); font-weight:700; }
+.guide-line em     { color:var(--red);  font-style:normal; font-weight:700; }
+.diff-label { font-size:12px; color:rgba(180,220,255,.55); letter-spacing:2px; margin-bottom:10px; align-self:flex-start; }
+.diff-group { width:100%; display:flex; gap:10px; margin-bottom:26px; }
+.diff-btn {
+  flex:1; padding:10px 6px;
+  background:rgba(255,255,255,.07); border:1.5px solid rgba(255,255,255,.2);
+  border-radius:22px; color:rgba(255,255,255,.7);
+  font-size:13px; font-weight:600; cursor:pointer;
+  text-align:center; line-height:1.55; transition:all .16s;
+}
+.diff-btn small { display:block; font-size:11px; font-weight:400; opacity:.75; }
+.diff-btn.active { border-color:var(--cyan); background:rgba(34,211,238,.15); color:var(--cyan); box-shadow:0 0 16px rgba(34,211,238,.18); }
+.diff-btn:active { transform:scale(.94); }
+.btn-start {
+  width:100%; padding:16px;
+  background:linear-gradient(135deg, #22d3ee, #818cf8);
+  border:none; border-radius:50px;
+  color:#fff; font-size:19px; font-weight:800; letter-spacing:4px;
+  cursor:pointer; box-shadow:0 6px 26px rgba(34,211,238,.28);
+  transition:all .15s; position:relative; overflow:hidden;
+}
+.btn-start::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg,rgba(255,255,255,.15) 0%,transparent 55%); }
+.btn-start:active { transform:scale(.96); opacity:.9; }
+
+/* ════════════════════════════════
+   TUTORIAL SCREEN
+════════════════════════════════ */
+#tutScreen { background:linear-gradient(180deg,#060d18 0%,#0a1628 100%); }
+.tut-body { width:100%; max-width:460px; padding:var(--safe-top) 22px 0; display:flex; flex-direction:column; align-items:center; min-height:100%; }
+.tut-topbar { width:100%; display:flex; align-items:center; gap:12px; margin-bottom:22px; }
+.tut-back {
+  height:38px; flex-shrink:0; padding:0 14px;
+  background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.15);
+  border-radius:20px; display:flex; align-items:center; justify-content:center;
+  font-size:14px; font-weight:600; cursor:pointer; color:rgba(255,255,255,.75); white-space:nowrap;
+}
+.tut-back:active { opacity:.7; }
+.tut-skip {
+  height:38px; flex-shrink:0; padding:0 14px;
+  background:rgba(34,211,238,.15); border:1px solid rgba(34,211,238,.4);
+  border-radius:20px; display:flex; align-items:center; justify-content:center;
+  font-size:14px; font-weight:600; cursor:pointer; color:var(--cyan); white-space:nowrap;
+}
+.tut-skip:active { opacity:.7; }
+.tut-progress { flex:1; height:6px; background:rgba(255,255,255,.11); border-radius:3px; overflow:hidden; }
+.tut-fill { height:100%; background:linear-gradient(90deg, #22d3ee, #818cf8); border-radius:3px; transition:width .35s ease; }
+.tut-cnt { font-size:14px; color:rgba(255,255,255,.4); flex-shrink:0; min-width:36px; text-align:right; }
+.tut-panel { width:100%; display:none; flex-direction:column; align-items:center; }
+.tut-panel.active { display:flex; animation:panelIn .3s ease; }
+@keyframes panelIn { from{opacity:0;transform:translateX(28px)} to{opacity:1;transform:none} }
+.demo-box {
+  width:100%; height:195px;
+  background:linear-gradient(180deg,rgba(34,211,238,.07) 0%,rgba(0,20,50,.65) 100%);
+  border:1px solid rgba(34,211,238,.14); border-radius:22px;
+  margin-bottom:22px; position:relative; overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+}
+.demo-box::before {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
+  background-size:36px 36px;
+}
+.step-head { font-size:22px; font-weight:800; color:#fff; text-align:center; margin-bottom:10px; }
+.step-body { font-size:17px; color:rgba(255,255,255,.82); text-align:center; line-height:1.95; margin-bottom:20px; max-width:340px; }
+.step-body strong { color:var(--cyan); }
+.step-body .good   { color:#7FFF9A; font-weight:700; }
+.step-body .danger { color:var(--red); font-weight:700; }
+.tut-nav { width:100%; display:flex; gap:12px; margin-top:auto; padding:14px 0 var(--safe-bot); }
+.btn-prev {
+  flex:0 0 88px; height:58px;
+  background:rgba(255,255,255,.09); border:1.5px solid rgba(255,255,255,.18);
+  border-radius:16px; color:rgba(255,255,255,.7); font-size:15px; cursor:pointer; visibility:hidden;
+}
+.btn-prev:active { opacity:.7; transform:scale(.96); }
+.btn-next {
+  flex:1; height:58px;
+  background:linear-gradient(135deg, #22d3ee, #818cf8);
+  border:none; border-radius:16px;
+  color:#fff; font-size:19px; font-weight:700; letter-spacing:1px;
+  cursor:pointer; box-shadow:0 5px 22px rgba(34,211,238,.22);
+  display:flex; align-items:center; justify-content:center; gap:6px; transition:background .25s;
+}
+.btn-next:active { transform:scale(.97); opacity:.92; }
+.btn-next.final { background:linear-gradient(135deg,#1aaa55,#22CC66); box-shadow:0 5px 22px rgba(0,180,80,.32); }
+
+/* ─── Demo: Step 1 ─── */
+.s1-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.s1-cell { width:48px; height:48px; border-radius:10px; background:rgba(255,255,255,.07); border:1.5px solid rgba(255,255,255,.1); transition:background .45s, box-shadow .45s, border-color .45s; }
+.s1-cell.lit { background:linear-gradient(135deg, #0ea5e9, #2563eb); border-color:#38bdf8; box-shadow:0 0 18px rgba(14,165,233,.72), inset 0 1px 0 rgba(255,255,255,.26); }
+.s1-tag { position:absolute; bottom:12px; right:12px; background:rgba(0,0,0,.52); border:1px solid rgba(255,255,255,.14); border-radius:20px; padding:5px 13px; font-size:13px; color:rgba(255,255,255,.8); backdrop-filter:blur(4px); }
+
+/* ─── Demo: Step 2 ─── */
+.s2-wrap { display:flex; align-items:center; gap:22px; }
+.s2-left { display:flex; flex-direction:column; align-items:center; gap:8px; }
+.s2-mini-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; }
+.s2-mc { width:34px; height:34px; border-radius:7px; background:rgba(255,255,255,.07); border:1.5px solid rgba(255,255,255,.1); }
+.s2-mc.lit { background:linear-gradient(135deg, #0ea5e9, #2563eb); border-color:#38bdf8; box-shadow:0 0 12px rgba(14,165,233,.65); animation:s2McPulse 1.8s ease-in-out infinite; }
+@keyframes s2McPulse { 0%,100%{box-shadow:0 0 10px rgba(14,165,233,.55)} 50%{box-shadow:0 0 22px rgba(14,165,233,.9)} }
+.s2-badge { padding:5px 13px; border-radius:20px; background:rgba(34,211,238,.14); color:#22d3ee; border:1px solid rgba(34,211,238,.3); font-size:12px; font-weight:600; animation:s2BadgePulse 1.8s ease-in-out infinite; }
+@keyframes s2BadgePulse { 0%,100%{opacity:.7} 50%{opacity:1} }
+.s2-arrow { font-size:20px; color:rgba(255,255,255,.3); }
+.s2-ring-wrap { position:relative; width:82px; height:82px; }
+.s2-svg { width:82px; height:82px; transform:rotate(-90deg); }
+.s2-track { fill:none; stroke:rgba(255,255,255,.11); stroke-width:7; }
+.s2-arc { fill:none; stroke:#22d3ee; stroke-width:7; stroke-linecap:round; stroke-dasharray:219; animation:s2Drain 2s linear infinite; }
+@keyframes s2Drain { 0%{stroke-dashoffset:0;stroke:#22d3ee} 85%{stroke-dashoffset:219;stroke:#818cf8} 100%{stroke-dashoffset:219;stroke:#818cf8} }
+.s2-num { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:800; animation:s2NumColor 2s linear infinite; }
+@keyframes s2NumColor { 0%{color:#22d3ee} 85%{color:#818cf8} 100%{color:#818cf8} }
+.s2-ring-label { position:absolute; bottom:-20px; left:50%; transform:translateX(-50%); font-size:11px; color:rgba(255,255,255,.4); white-space:nowrap; }
+
+/* ─── Demo: Step 3 ─── */
+.s3-outer { display:flex; flex-direction:column; align-items:center; gap:12px; }
+.s3-row { display:flex; align-items:center; gap:28px; }
+.s3-side { display:flex; flex-direction:column; align-items:center; gap:8px; position:relative; }
+.s3-cell-big { width:56px; height:56px; border-radius:12px; background:rgba(255,255,255,.07); border:1.5px solid rgba(255,255,255,.1); }
+.s3-correct-cell { background:linear-gradient(135deg,#0ea5e9,#2563eb); border-color:#38bdf8; box-shadow:0 0 18px rgba(14,165,233,.7); animation:s3CorrectPop 2.6s ease-in-out infinite; }
+@keyframes s3CorrectPop {
+  0%,18%{background:rgba(255,255,255,.07);box-shadow:none;border-color:rgba(255,255,255,.1)}
+  30%,72%{background:linear-gradient(135deg,#0ea5e9,#2563eb);box-shadow:0 0 18px rgba(14,165,233,.7);border-color:#38bdf8}
+  85%,100%{background:rgba(255,255,255,.07);box-shadow:none;border-color:rgba(255,255,255,.1)}
+}
+.s3-wrong-cell { animation:s3WrongBlink 2.6s ease-in-out infinite; }
+@keyframes s3WrongBlink {
+  0%,40%{background:rgba(255,255,255,.07);box-shadow:none;border-color:rgba(255,255,255,.1)}
+  52%,72%{background:linear-gradient(135deg,#ef4444,#b91c1c);box-shadow:0 0 16px rgba(239,68,68,.65);border-color:#f87171}
+  84%,100%{background:rgba(255,255,255,.07);box-shadow:none;border-color:rgba(255,255,255,.1)}
+}
+.s3-finger { position:absolute; top:-50px; left:50%; transform:translateX(-50%); font-size:28px; animation:s3FingerTap 2.6s ease-in-out infinite; }
+.s3-finger.delay { animation-delay:.6s; }
+@keyframes s3FingerTap {
+  0%,25%{transform:translateX(-50%) translateY(-6px);opacity:.3}
+  40%,65%{transform:translateX(-50%) translateY(36px);opacity:1}
+  80%,100%{transform:translateX(-50%) translateY(-6px);opacity:.3}
+}
+.s3-lbl { padding:5px 14px; border-radius:18px; font-size:12.5px; font-weight:700; }
+.s3-lbl.yes { background:rgba(14,165,233,.18); color:#38bdf8; border:1px solid rgba(14,165,233,.3); }
+.s3-lbl.no  { background:rgba(239,68,68,.18);  color:#f87171; border:1px solid rgba(239,68,68,.3); }
+.s3-vs { font-size:16px; color:rgba(255,255,255,.25); font-weight:700; }
+
+/* ─── Demo: Step 4 ─── */
+.s4-wrap { display:flex; flex-direction:column; align-items:center; gap:11px; width:100%; padding:0 18px; }
+.s4-rule { width:100%; display:flex; align-items:center; gap:12px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.09); border-radius:12px; padding:10px 14px; }
+.s4-icon { font-size:26px; flex-shrink:0; line-height:1; }
+.s4-text { font-size:13px; color:rgba(255,255,255,.75); line-height:1.55; }
+.s4-text strong { color:var(--cyan); }
+.s4-text .bad { color:var(--red); font-weight:700; }
+.s4-text .ok  { color:#7FFF9A; font-weight:700; }
+.s4-rule:nth-child(1) { border-color:rgba(14,165,233,.22); }
+.s4-rule:nth-child(2) { border-color:rgba(251,191,36,.22); }
+.s4-rule:nth-child(3) { border-color:rgba(239,68,68,.18); }
+
+/* ════════════════════════════════
+   GAME SCREEN
+════════════════════════════════ */
+#game-screen { justify-content:center; gap:14px; }
+#result-screen { justify-content:center; gap:20px; }
+
+/* 通用游戏按钮基类 */
+.gbtn {
+  border:none; border-radius:100px; font-weight:700; cursor:pointer;
+  letter-spacing:1.5px; transition:transform .1s, box-shadow .2s, opacity .1s;
+  position:relative; overflow:hidden; touch-action:manipulation;
+}
+.gbtn::after { content:''; position:absolute; inset:0; background:rgba(255,255,255,.18); opacity:0; transition:opacity .1s; }
+.gbtn:active { transform:scale(.94); }
+.gbtn:active::after { opacity:1; }
+.gbtn-next-lv {
+  font-size:16px; padding:13px 36px;
+  background:linear-gradient(135deg, #34d399, #059669);
+  color:#fff; box-shadow:0 4px 20px rgba(52,211,153,.4);
+}
+.gbtn-retry {
+  font-size:15px; padding:12px 30px;
+  background:rgba(255,255,255,.07); color:#9ca3af;
+  border:1px solid rgba(255,255,255,.12);
+}
+
+/* 游戏顶部信息栏 */
+.game-header { width:100%; max-width:400px; box-sizing:border-box; display:flex; justify-content:space-between; align-items:center; padding-right:max(72px, calc(env(safe-area-inset-right,0px) + 72px)); }
+.stat-box { min-width:70px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:7px 16px; text-align:center; }
+.stat-label { font-size:10px; color:#6b7280; text-transform:uppercase; letter-spacing:1.5px; }
+.stat-value { font-size:22px; font-weight:700; color:#e5e7eb; }
+.phase-badge { padding:6px 18px; border-radius:100px; font-size:13px; font-weight:600; letter-spacing:.5px; transition:all .3s; }
+.phase-badge.showing { background:rgba(34,211,238,.14); color:#22d3ee; border:1px solid rgba(34,211,238,.3); }
+.phase-badge.clicking { background:rgba(167,139,250,.14); color:#a78bfa; border:1px solid rgba(167,139,250,.3); }
+
+/* 计时条 */
+.timer-row { width:100%; max-width:400px; display:flex; align-items:center; gap:10px; }
+.timer-track { flex:1; height:8px; background:rgba(255,255,255,.07); border-radius:4px; overflow:hidden; }
+.timer-fill { height:100%; border-radius:4px; background:linear-gradient(90deg, #22d3ee, #818cf8); transition:width .1s linear; }
+.timer-fill.danger { background:linear-gradient(90deg, #f97316, #ef4444); }
+.timer-sec { font-size:14px; font-weight:600; color:#9ca3af; min-width:28px; text-align:right; }
+.timer-sec.danger { color:#ef4444; }
+
+/* 格子容器 */
+#grid-wrap { background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.06); border-radius:20px; padding:14px; }
+#grid { display:grid; }
+.cell {
+  border-radius:10px; background:rgba(255,255,255,.06); border:1.5px solid rgba(255,255,255,.09);
+  cursor:default; touch-action:manipulation;
+  transition:background .2s, box-shadow .2s, border-color .2s, transform .15s;
+}
+.cell.clickable { cursor:pointer; }
+.cell.clickable:active { transform:scale(.88); }
+.cell.blue {
+  background:linear-gradient(135deg, #0ea5e9, #2563eb); border-color:#38bdf8;
+  box-shadow:0 0 18px rgba(14,165,233,.75), inset 0 1px 0 rgba(255,255,255,.3);
+  animation:blueAppear .25s ease;
+}
+@keyframes blueAppear { from{transform:scale(.75);opacity:0} to{transform:scale(1);opacity:1} }
+.cell.correct {
+  background:linear-gradient(135deg, #0ea5e9, #2563eb); border-color:#38bdf8;
+  box-shadow:0 0 18px rgba(14,165,233,.7); animation:cellPopIn .28s ease;
+}
+@keyframes cellPopIn { 0%{transform:scale(.8)} 60%{transform:scale(1.12)} 100%{transform:scale(1)} }
+.cell.wrong {
+  background:linear-gradient(135deg, #ef4444, #b91c1c); border-color:#f87171;
+  box-shadow:0 0 18px rgba(239,68,68,.7); animation:cellShake .32s ease;
+}
+@keyframes cellShake {
+  0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)}
+  40%{transform:translateX(5px)} 60%{transform:translateX(-3px)} 80%{transform:translateX(3px)}
+}
+.cell.missed {
+  background:linear-gradient(135deg, #f59e0b, #d97706); border-color:#fbbf24;
+  box-shadow:0 0 14px rgba(245,158,11,.55); animation:cellPopIn .25s ease;
+}
+/* 底部胶囊提示（仿 feed-fish 状态栏） */
+#hint-pill {
+  position:fixed; bottom:18px; left:50%; transform:translateX(-50%);
+  z-index:20; display:none; align-items:center;
+  background:rgba(0,0,0,.48); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  padding:8px 20px; border-radius:22px;
+  font-size:14px; font-weight:700; color:rgba(255,255,255,.88);
+  border:1px solid rgba(255,255,255,.15);
+  max-width:calc(100% - 48px); text-align:center; pointer-events:none;
+  transition:color .3s, border-color .3s;
+}
+#hint-pill.urgent { color:#f97316; border-color:rgba(255,100,50,.4); }
+
+/* GO! 遮罩 */
+#go-overlay {
+  position:fixed; inset:0; z-index:50;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,0,.55); opacity:0; pointer-events:none; transition:opacity .15s;
+}
+#go-overlay.show { opacity:1; pointer-events:auto; }
+.go-text {
+  font-size:90px; font-weight:900; letter-spacing:4px;
+  background:linear-gradient(135deg, #34d399, #22d3ee);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+}
+@keyframes goAnim {
+  0%{transform:scale(.4);opacity:0} 40%{transform:scale(1.15);opacity:1}
+  70%{transform:scale(.95);opacity:1} 85%{transform:scale(1.02);opacity:1} 100%{transform:scale(1.6);opacity:0}
+}
+
+/* 结算屏幕 */
+.result-emoji { font-size:68px; animation:bounceIn .5s cubic-bezier(.34,1.56,.64,1); }
+@keyframes bounceIn { from{transform:scale(.2);opacity:0} to{transform:scale(1);opacity:1} }
+.result-title { font-size:28px; font-weight:800; letter-spacing:3px; }
+.result-title.success  { color:#34d399; }
+.result-title.timeout  { color:#f59e0b; }
+.result-title.complete        { color:#a78bfa; }
+.result-title.session-complete{ color:var(--gold); }
+.res-subtitle { font-size:13px; color:rgba(255,255,255,.45); letter-spacing:1px; margin-top:-8px; }
+.result-cards { display:flex; gap:12px; }
+.result-card { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.09); border-radius:14px; padding:14px 22px; text-align:center; min-width:82px; }
+.result-card-label { font-size:11px; color:#6b7280; letter-spacing:1px; margin-bottom:5px; }
+.result-card-value { font-size:26px; font-weight:700; }
+.rc-green { color:#34d399; }
+.rc-red   { color:#f87171; }
+.rc-blue  { color:#60a5fa; }
+.btn-row { display:flex; gap:12px; align-items:center; }
+
+/* 暂停按钮 */
+#pauseBtn {
+  position:fixed;
+  top:max(10px, env(safe-area-inset-top, 10px));
+  right:max(12px, env(safe-area-inset-right, 12px));
+  left:auto; bottom:auto;
+  z-index:60; display:none;
+  height:38px; padding:0 16px; border-radius:19px;
+  border:1.5px solid rgba(255,255,255,.25);
+  background:rgba(0,0,0,.5); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  color:#fff; font-size:14px; font-weight:700;
+  font-family:'PingFang SC','Microsoft YaHei',sans-serif; letter-spacing:2px;
+  cursor:pointer; align-items:center; justify-content:center;
+}
+#pauseOverlay {
+  position:fixed; inset:0; z-index:300; display:none;
+  flex-direction:column; align-items:center; justify-content:center; gap:16px;
+  background:rgba(0,0,0,.72); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+}
+#pauseOverlay .po-icon  { font-size:48px; }
+#pauseOverlay .po-title { font-size:22px; font-weight:700; color:#fff; margin-bottom:8px; }
+#pauseOverlay .po-btn   { width:180px; padding:13px 0; border-radius:50px; font-size:15px; font-weight:600; cursor:pointer; text-align:center; display:block; transition:opacity .15s; border:none; }
+#pauseOverlay .po-btn:hover { opacity:.85; }
+#pauseOverlay .po-resume { background:linear-gradient(135deg,#22d3ee,#818cf8); color:#fff; box-shadow:0 4px 16px rgba(34,211,238,.35); }
+#pauseOverlay .po-home   { background:rgba(255,255,255,.12); color:rgba(255,255,255,.85); border:1.5px solid rgba(255,255,255,.25) !important; }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+
+<!-- 底部提示胶囊（game-screen 期间显示） -->
+<div id="hint-pill">请观察蓝色方块的位置…</div>
+
+<!-- 暂停按钮 & 遮罩 -->
+<button id="pauseBtn" onclick="togglePause()">暂 停</button>
+<div id="pauseOverlay">
+  <div class="po-icon">🧩</div>
+  <div class="po-title">游戏已暂停</div>
+  <button class="po-btn po-resume" onclick="togglePause()">继续游戏</button>
+  <button class="po-btn po-home"   onclick="goBackCover()">回到首页</button>
+</div>
+
+<!-- ═══════════════════════════════
+     HOME SCREEN
+═══════════════════════════════ -->
+<div id="homeScreen" class="screen">
+  <div class="home-body">
+    <div class="icon-wrap">
+      <div class="icon-mini-grid" id="iconGrid"></div>
+    </div>
+    <div class="game-name">记忆方块</div>
+    <div class="game-sub">闪光转瞬即逝，记忆永不消失</div>
+    <div class="guide-card">
+      <div class="guide-line">🧠 <span>方块亮起 <strong>2 秒</strong>后消失，记住位置</span></div>
+      <div class="guide-line">👆 <span>方块消失后，点击<strong>你记住的格子</strong></span></div>
+      <div class="guide-line">✅ <span><strong>全部找对</strong>即可通关，进入下一关</span></div>
+      <div class="guide-line">⚡ <span>答得越快，<em>速度加成分</em>越高！</span></div>
+    </div>
+    <div class="diff-label">选择难度（起始关卡）</div>
+    <div class="diff-group">
+      <button class="diff-btn active" data-level="1">🟦 简单<small>3×3 起步</small></button>
+      <button class="diff-btn"        data-level="3">🟦🟦 普通<small>4×4 起步</small></button>
+      <button class="diff-btn"        data-level="6">🟦🟦🟦 困难<small>5×5 起步</small></button>
+    </div>
+    <button class="btn-start" id="startBtn">开 始 挑 战</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+     TUTORIAL SCREEN
+═══════════════════════════════ -->
+<div id="tutScreen" class="screen hidden">
+  <div class="tut-body">
+    <div class="tut-topbar">
+      <div class="tut-back" id="tutBack">返回</div>
+      <div class="tut-progress"><div class="tut-fill" id="tutFill" style="width:20%"></div></div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="tut-cnt" id="tutCnt">1 / 5</div>
+        <div class="tut-skip" id="tutSkip">跳过</div>
+      </div>
+    </div>
+
+    <!-- Panel 1 -->
+    <div class="tut-panel active" id="p1">
+      <div class="demo-box">
+        <div class="s1-grid" id="s1Grid">
+          <div class="s1-cell"></div><div class="s1-cell"></div><div class="s1-cell"></div>
+          <div class="s1-cell"></div><div class="s1-cell"></div><div class="s1-cell"></div>
+          <div class="s1-cell"></div><div class="s1-cell"></div><div class="s1-cell"></div>
+        </div>
+        <div class="s1-tag">🎯 记住亮起的方块！</div>
+      </div>
+      <div class="step-head">🎯 游戏目标</div>
+      <div class="step-body">屏幕上有一个<strong>方块网格</strong>，<br>其中几个方块会<strong>发蓝光亮起</strong>，<br>你的任务是把它们<strong>全部记住并找回</strong>！</div>
+    </div>
+
+    <!-- Panel 2 -->
+    <div class="tut-panel" id="p2">
+      <div class="demo-box">
+        <div class="s2-wrap">
+          <div class="s2-left">
+            <div class="s2-mini-grid">
+              <div class="s2-mc"></div><div class="s2-mc lit"></div><div class="s2-mc"></div>
+              <div class="s2-mc lit"></div><div class="s2-mc"></div><div class="s2-mc"></div>
+              <div class="s2-mc"></div><div class="s2-mc"></div><div class="s2-mc lit"></div>
+            </div>
+            <div class="s2-badge">🧠 记忆中</div>
+          </div>
+          <div class="s2-arrow">→</div>
+          <div class="s2-ring-wrap">
+            <svg class="s2-svg" viewBox="0 0 82 82">
+              <circle class="s2-track" cx="41" cy="41" r="34"/>
+              <circle class="s2-arc"   cx="41" cy="41" r="34"/>
+            </svg>
+            <div class="s2-num" id="s2Num">2</div>
+            <div class="s2-ring-label">秒后消失</div>
+          </div>
+        </div>
+      </div>
+      <div class="step-head">🧠 记忆阶段</div>
+      <div class="step-body">开局时，若干方块<strong>亮起蓝色</strong>，<br>持续 <strong>2 秒</strong>后自动熄灭，<br>用眼睛和大脑<strong>牢牢记住位置</strong>！</div>
+    </div>
+
+    <!-- Panel 3 -->
+    <div class="tut-panel" id="p3">
+      <div class="demo-box">
+        <div class="s3-outer">
+          <div class="s3-row">
+            <div class="s3-side">
+              <div class="s3-cell-big s3-correct-cell"></div>
+              <span class="s3-finger">👆</span>
+              <div class="s3-lbl yes">✅ 答对了</div>
+            </div>
+            <div class="s3-vs">VS</div>
+            <div class="s3-side">
+              <div class="s3-cell-big s3-wrong-cell"></div>
+              <span class="s3-finger delay">👆</span>
+              <div class="s3-lbl no">❌ 点错了</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="step-head">👆 点击还原</div>
+      <div class="step-body">方块消失后开始<strong>倒计时</strong>，<br>点击你记住的位置：<br><span class="good">点对变蓝 ✅</span> / <span class="danger">点错变红 ❌</span><br><strong>全部找对</strong>即可通关！</div>
+    </div>
+
+    <!-- Panel 4 -->
+    <div class="tut-panel" id="p4">
+      <div class="demo-box">
+        <div class="s4-wrap">
+          <div class="s4-rule"><div class="s4-icon">✅</div><div class="s4-text">每找到一个方块 <strong>+10 分</strong></div></div>
+          <div class="s4-rule"><div class="s4-icon">⚡</div><div class="s4-text">提前完成有<strong>时间奖励分</strong>，剩余时间越多越高！</div></div>
+          <div class="s4-rule"><div class="s4-icon">⏰</div><div class="s4-text">超时未完成 → <span class="bad">本关结束</span>，<span class="ok">未找到的方块变橙色</span>提示</div></div>
+        </div>
+      </div>
+      <div class="step-head">📊 计分规则</div>
+      <div class="step-body">答对得 <strong>10 分</strong>，提前通关有<strong>速度加成</strong>，<br>点错不扣分但会影响加成，<br>力求<strong>又准又快</strong>才能拿高分！</div>
+    </div>
+
+    <!-- Panel 5 -->
+    <div class="tut-panel" id="p5">
+      <div class="p5-zone">
+        <div class="p5-hint-title">👆 来试一试</div>
+        <div class="p5-hint-sub">方块亮起后记住位置，消失后点出来！</div>
+        <div class="p5-mini-grid" id="p5Grid"></div>
+        <div class="p5-msg" id="p5Msg"></div>
+        <div class="p5-status" id="p5Status">正在准备…</div>
+        <div class="p5-go-text" id="p5GoText">GO!</div>
+      </div>
+      <div class="step-head">🖐 动手试试看</div>
+      <div class="step-body">观察亮起的方块，消失后<br>点击<strong>你记住的格子</strong>来练习一下！</div>
+    </div>
+
+    <div class="tut-nav">
+      <button class="btn-prev" id="btnPrev" onclick="tutPrev()">上一步</button>
+      <button class="btn-next" id="btnNext" onclick="tutNext()">下一步 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+     GAME SCREEN
+═══════════════════════════════ -->
+<div id="game-screen" class="screen hidden">
+  <div class="game-header">
+    <div class="stat-box">
+      <div class="stat-label">进度</div>
+      <div class="stat-value" id="level-val">1/3</div>
+    </div>
+    <div class="phase-badge showing" id="phase-badge">记忆中</div>
+    <div class="stat-box">
+      <div class="stat-label">得分</div>
+      <div class="stat-value" id="score-val">0</div>
+    </div>
+  </div>
+  <div class="timer-row">
+    <div class="timer-track"><div class="timer-fill" id="timer-fill" style="width:100%"></div></div>
+    <div class="timer-sec" id="timer-sec">--</div>
+  </div>
+  <div id="grid-wrap"><div id="grid"></div></div>
+</div>
+
+<!-- ═══════════════════════════════
+     RESULT SCREEN
+═══════════════════════════════ -->
+<div id="result-screen" class="screen hidden">
+  <div class="result-emoji" id="res-emoji">🎉</div>
+  <div class="result-title" id="res-title">通关成功！</div>
+  <div class="res-subtitle" id="res-subtitle"></div>
+  <div class="result-cards">
+    <div class="result-card"><div class="result-card-label">正确</div><div class="result-card-value rc-green" id="res-correct">0</div></div>
+    <div class="result-card"><div class="result-card-label">错误</div><div class="result-card-value rc-red"   id="res-wrong">0</div></div>
+    <div class="result-card"><div class="result-card-label">总分</div><div class="result-card-value rc-blue"  id="res-score">0</div></div>
+  </div>
+  <div class="btn-row">
+    <button class="gbtn gbtn-retry" id="btn-retry" onclick="restartGame()">重新开始</button>
+    <button class="gbtn gbtn-next-lv" id="btn-next-lv" onclick="nextLevel()">下一关 →</button>
+  </div>
+</div>
+
+<!-- GO! 遮罩 -->
+<div id="go-overlay">
+  <div class="go-text" id="go-text">GO!</div>
+</div>
+
+<!-- 首页按钮（首页屏 & 结算屏可见） -->
+<a href="index.html" id="homeBtn" style="position:fixed;top:12px;left:12px;z-index:9999;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:13px;font-weight:600;padding:7px 14px;border-radius:20px;cursor:pointer;text-decoration:none;display:none;align-items:center;gap:5px;transition:background .15s;">🏠 游戏列表</a>
+
+<script>
+'use strict';
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   关卡配置
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const LEVELS = [
+  { N:3, X:3,  time:15 },
+  { N:3, X:4,  time:14 },
+  { N:4, X:4,  time:13 },
+  { N:4, X:5,  time:12 },
+  { N:4, X:6,  time:11 },
+  { N:5, X:6,  time:10 },
+  { N:5, X:7,  time:10 },
+  { N:5, X:9,  time:9  },
+  { N:5, X:11, time:8  },
+  { N:6, X:12, time:8  },
+  { N:6, X:14, time:7  },
+  { N:6, X:16, time:7  },
+];
+const SHOW_MS = 2000;
+
+/* ── 引导状态 ── */
+let selLevel = 1;
+let step = 1;
+const STEPS = 5;
+
+/* ── 游戏状态 ── */
+const gs = {
+  level:1, score:0, startLevel:1,
+  sessionPlayed:0, sessionMax:3,          /* 每次挑战只玩 3 关 */
+  N:3, X:3, maxTime:15,
+  blues:[], correct:[], wrong:[],
+  phase:'idle',
+  timer:null, timeLeft:0,
+};
+let _mbPaused = false;
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   工具
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function levelCfg(lv) {
+  if (lv <= LEVELS.length) return LEVELS[lv - 1];
+  const last  = LEVELS[LEVELS.length - 1];
+  const extra = lv - LEVELS.length;
+  return {
+    N:    Math.min(8, last.N + Math.floor(extra / 4)),
+    X:    Math.min(last.N * last.N - 2, last.X + Math.ceil(extra / 2)),
+    time: Math.max(5, last.time - Math.floor(extra / 3)),
+  };
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   屏幕管理（统一）
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+  // 首页按钮：仅在首页屏显示
+  document.getElementById('homeBtn').style.display =
+    (id === 'homeScreen') ? 'flex' : 'none';
+  // 非游戏屏：隐藏底部提示胶囊
+  if (id !== 'game-screen') document.getElementById('hint-pill').style.display = 'none';
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   首页图标动画
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+(function initIconGrid() {
+  const wrap = document.getElementById('iconGrid');
+  const litSet = new Set([0, 2, 4, 6, 8]);
+  for (let i = 0; i < 9; i++) {
+    const c = document.createElement('div');
+    c.className = 'icon-mini-cell' + (litSet.has(i) ? ' lit' : '');
+    wrap.appendChild(c);
+  }
+  const cells = wrap.querySelectorAll('.icon-mini-cell');
+  setInterval(() => {
+    const idx = Math.floor(Math.random() * cells.length);
+    cells[idx].classList.toggle('lit');
+    setTimeout(() => cells[idx].classList.toggle('lit'), 420);
+  }, 680);
+})();
+
+/* ── Step 1 动画 ── */
+(function initS1Grid() {
+  const cells = document.querySelectorAll('#s1Grid .s1-cell');
+  const patterns = [[0,4,8],[2,4,6],[1,3,7],[0,5,6],[2,4,7]];
+  let cur = 0;
+  function showNext() {
+    cells.forEach(c => c.classList.remove('lit'));
+    patterns[cur % patterns.length].forEach(i => cells[i].classList.add('lit'));
+    cur++;
+    setTimeout(showNext, 1400);
+  }
+  showNext();
+})();
+
+/* ── Step 2 倒计时数字 ── */
+let s2t = 2.0;
+setInterval(() => {
+  s2t -= 0.02;
+  if (s2t <= 0) s2t = 2.0;
+  const el = document.getElementById('s2Num');
+  if (el) el.textContent = Math.max(0, Math.ceil(s2t));
+}, 20);
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   首页交互
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+document.querySelectorAll('.diff-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selLevel = +btn.dataset.level;
+  });
+});
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  showScreen('tutScreen');
+  step = 1;
+  refresh();
+});
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   引导导航
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+document.getElementById('tutBack').addEventListener('click', () => {
+  showScreen('homeScreen');
+  stopP5();
+});
+document.getElementById('tutSkip').addEventListener('click', () => {
+  stopP5();
+  launchGame();
+});
+function tutNext() { if (step < STEPS) { step++; refresh(); } else launchGame(); }
+function tutPrev() { if (step > 1) { step--; refresh(); } }
+
+function refresh() {
+  for (let i = 1; i <= STEPS; i++) {
+    document.getElementById(`p${i}`).classList.toggle('active', i === step);
+  }
+  document.getElementById('tutFill').style.width = `${(step / STEPS) * 100}%`;
+  document.getElementById('tutCnt').textContent  = `${step} / ${STEPS}`;
+
+  const prev = document.getElementById('btnPrev');
+  const next = document.getElementById('btnNext');
+  prev.style.visibility = step > 1 ? 'visible' : 'hidden';
+
+  if (step === STEPS) {
+    next.textContent = '✓ 开始挑战！';
+    next.classList.add('final');
+  } else {
+    next.textContent = '下一步 →';
+    next.classList.remove('final');
+  }
+
+  if (step === 5) startP5Round();
+  else stopP5();
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Step 5 互动试玩
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const P5_SHOW_MS = 2000;
+let p5Blues = [], p5Correct = [], p5Phase = 'idle', p5RoundTid = null;
+
+function buildP5Grid() {
+  const grid = document.getElementById('p5Grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < 9; i++) {
+    const c = document.createElement('div');
+    c.className = 'p5-cell';
+    c.dataset.idx = i;
+    c.addEventListener('click', () => p5HandleClick(i));
+    grid.appendChild(c);
+  }
+}
+
+function startP5Round() {
+  stopP5();
+  buildP5Grid();
+  p5Blues = []; p5Correct = []; p5Phase = 'idle';
+  setP5Msg('');
+  setP5Status('准备好了吗？', false);
+
+  p5RoundTid = setTimeout(() => {
+    p5Blues = shuffle(Array.from({ length: 9 }, (_, i) => i)).slice(0, 2);
+    p5Phase = 'showing';
+    p5Blues.forEach(i => getP5Cell(i).classList.add('lit'));
+    setP5Status('👀 记住蓝色方块的位置！', true);
+
+    p5RoundTid = setTimeout(() => {
+      p5Blues.forEach(i => getP5Cell(i).classList.remove('lit'));
+      showP5Go(() => {
+        p5Phase = 'clicking';
+        document.querySelectorAll('#p5Grid .p5-cell').forEach(c => c.classList.add('clickable'));
+        setP5Status('💪 现在点击你记住的位置！', true);
+      });
+    }, P5_SHOW_MS);
+  }, 700);
+}
+
+function showP5Go(cb) {
+  const el = document.getElementById('p5GoText');
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+  setTimeout(() => { el.classList.remove('show'); cb(); }, 700);
+}
+
+function p5HandleClick(idx) {
+  if (p5Phase !== 'clicking') return;
+  const cell = getP5Cell(idx);
+  if (!cell || cell.classList.contains('correct') || cell.classList.contains('wrong')) return;
+  cell.classList.remove('clickable');
+  if (p5Blues.includes(idx)) {
+    p5Correct.push(idx);
+    cell.classList.add('correct');
+    if (p5Correct.length === p5Blues.length) {
+      p5Phase = 'done';
+      document.querySelectorAll('#p5Grid .p5-cell').forEach(c => c.classList.remove('clickable'));
+      setP5Msg('🎉 太棒了！就是这样！');
+      setP5Status('', false);
+      p5RoundTid = setTimeout(() => startP5Round(), 2500);
+    }
+  } else {
+    cell.classList.add('wrong');
+    setTimeout(() => {
+      if (p5Phase === 'clicking') { cell.classList.remove('wrong'); cell.classList.add('clickable'); }
+    }, 420);
+  }
+}
+
+function stopP5() {
+  if (p5RoundTid) { clearTimeout(p5RoundTid); p5RoundTid = null; }
+  p5Phase = 'idle';
+}
+
+function getP5Cell(idx) { return document.querySelector(`#p5Grid [data-idx="${idx}"]`); }
+function setP5Msg(text) {
+  const el = document.getElementById('p5Msg');
+  if (text) { el.textContent = text; el.classList.add('show'); }
+  else      { el.classList.remove('show'); el.textContent = ''; }
+}
+function setP5Status(text, active) {
+  const el = document.getElementById('p5Status');
+  el.textContent = text;
+  el.className = 'p5-status' + (active ? ' active' : '');
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   启动游戏（引导完成后调用）
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function launchGame() {
+  stopP5();
+  gs.startLevel = selLevel;
+  gs.level = selLevel;
+  gs.score = 0;
+  gs.sessionPlayed = 0;
+  _mbPaused = false;
+  document.getElementById('pauseOverlay').style.display = 'none';
+  document.getElementById('pauseBtn').style.display = 'flex';
+  showScreen('game-screen');
+  runLevel();
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   暂停 / 回首页
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+window.togglePause = function() {
+  if (gs.phase !== 'clicking' && gs.phase !== 'showing') return;
+  _mbPaused = !_mbPaused;
+  document.getElementById('pauseOverlay').style.display = _mbPaused ? 'flex' : 'none';
+  if (_mbPaused) {
+    stopTimer();
+  } else if (gs.phase === 'clicking') {
+    gs.timer = setInterval(timerTick, 100);
+  }
+};
+
+window.goBackCover = function() {
+  _mbPaused = false;
+  stopTimer();
+  gs.phase = 'idle';
+  document.getElementById('pauseOverlay').style.display = 'none';
+  document.getElementById('pauseBtn').style.display = 'none';
+  showScreen('homeScreen');
+};
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   结算屏按钮
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+window.restartGame = function() {
+  gs.level = gs.startLevel;
+  gs.score = 0;
+  gs.sessionPlayed = 0;
+  document.getElementById('pauseBtn').style.display = 'flex';
+  showScreen('game-screen');
+  runLevel();
+};
+
+window.nextLevel = function() {
+  gs.sessionPlayed++;
+  gs.level++;
+  document.getElementById('pauseBtn').style.display = 'flex';
+  showScreen('game-screen');
+  runLevel();
+};
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   游戏逻辑
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function runLevel() {
+  stopTimer();
+  const cfg = levelCfg(gs.level);
+  gs.N = cfg.N; gs.X = cfg.X; gs.maxTime = cfg.time;
+  gs.blues = []; gs.correct = []; gs.wrong = [];
+  gs.phase = 'showing';
+
+  document.getElementById('level-val').textContent = `${gs.sessionPlayed + 1}/${gs.sessionMax}`;
+  document.getElementById('score-val').textContent = gs.score;
+  setTimerBar(1, false);
+  document.getElementById('timer-sec').textContent = '--';
+  document.getElementById('timer-sec').className = 'timer-sec';
+  setBadge('showing', '记忆中');
+  setHint(`👀 观察 ${gs.X} 个蓝色方块的位置…`);
+  showHint(true);
+
+  buildGrid();
+  gs.blues = shuffle(Array.from({ length: gs.N * gs.N }, (_, i) => i)).slice(0, gs.X);
+  gs.blues.forEach(i => getCell(i).classList.add('blue'));
+
+  setTimeout(() => {
+    if (gs.phase !== 'showing') return;
+    gs.blues.forEach(i => getCell(i).classList.remove('blue'));
+    playGo(() => startClickPhase());
+  }, SHOW_MS);
+}
+
+function playGo(cb) {
+  const overlay = document.getElementById('go-overlay');
+  const text    = document.getElementById('go-text');
+  text.style.animation = 'none';
+  void text.offsetWidth;
+  text.style.animation = 'goAnim 0.85s ease forwards';
+  overlay.classList.add('show');
+  setTimeout(() => { overlay.classList.remove('show'); cb(); }, 850);
+}
+
+function timerTick() {
+  gs.timeLeft -= 0.1;
+  const pct    = Math.max(0, gs.timeLeft / gs.maxTime);
+  const danger = pct < 0.3;
+  setTimerBar(pct, danger);
+  const secEl = document.getElementById('timer-sec');
+  secEl.textContent = Math.ceil(gs.timeLeft);
+  secEl.className   = 'timer-sec' + (danger ? ' danger' : '');
+  const hintEl = document.getElementById('hint-pill');
+  if (danger) hintEl.classList.add('urgent');
+  else        hintEl.classList.remove('urgent');
+  if (gs.timeLeft <= 0) endRound('timeout');
+}
+
+function startClickPhase() {
+  gs.phase    = 'clicking';
+  gs.timeLeft = gs.maxTime;
+  setBadge('clicking', '作答中');
+  updateHint();
+  showHint(true);
+  document.querySelectorAll('.cell').forEach(c => c.classList.add('clickable'));
+  gs.timer = setInterval(timerTick, 100);
+}
+
+function handleClick(idx) {
+  if (gs.phase !== 'clicking' || _mbPaused) return;
+  if (gs.correct.includes(idx) || gs.wrong.includes(idx)) return;
+
+  const cell = getCell(idx);
+  cell.classList.remove('clickable');
+
+  if (gs.blues.includes(idx)) {
+    gs.correct.push(idx);
+    cell.classList.add('correct');
+    gs.score += 10;
+    document.getElementById('score-val').textContent = gs.score;
+  } else {
+    gs.wrong.push(idx);
+    cell.classList.add('wrong');
+  }
+
+  updateHint();
+
+  if (gs.correct.length === gs.X) {
+    const bonus = Math.round(gs.timeLeft * 5);
+    gs.score += bonus;
+    document.getElementById('score-val').textContent = gs.score;
+    setTimeout(() => endRound('success'), 550);
+    return;
+  }
+  if (gs.correct.length + gs.wrong.length >= gs.N * gs.N) {
+    setTimeout(() => endRound('complete'), 550);
+  }
+}
+
+function endRound(reason) {
+  if (gs.phase === 'done') return;
+  stopTimer();
+  gs.phase = 'done';
+  if (reason !== 'success') {
+    gs.blues.forEach(i => {
+      if (!gs.correct.includes(i)) getCell(i).classList.add('missed');
+    });
+  }
+  setTimeout(() => showResult(reason), 500);
+}
+
+function showResult(reason) {
+  document.getElementById('pauseBtn').style.display = 'none';
+
+  /* 判断是否完成全部 3 关 */
+  const isSessionComplete = (reason === 'success' && gs.sessionPlayed >= gs.sessionMax - 1);
+  const canAdvance        = (reason === 'success' && !isSessionComplete);
+
+  /* 表情 */
+  const emojiMap = { success:'🎉', timeout:'⏰', complete:'🔍' };
+  document.getElementById('res-emoji').textContent = isSessionComplete ? '🏆' : (emojiMap[reason] || '🎉');
+
+  /* 标题 */
+  const titleEl = document.getElementById('res-title');
+  if      (isSessionComplete)    { titleEl.textContent = '全部完成！'; titleEl.className = 'result-title session-complete'; }
+  else if (reason === 'success') { titleEl.textContent = '通关成功！'; titleEl.className = 'result-title success'; }
+  else if (reason === 'timeout') { titleEl.textContent = '时间到！';   titleEl.className = 'result-title timeout'; }
+  else if (reason === 'complete'){ titleEl.textContent = '方块已点完'; titleEl.className = 'result-title complete'; }
+
+  /* 副标题：当前关卡进度 */
+  const sub = document.getElementById('res-subtitle');
+  if (sub) sub.textContent = `第 ${gs.sessionPlayed + 1} / ${gs.sessionMax} 关`;
+
+  document.getElementById('res-correct').textContent = gs.correct.length;
+  document.getElementById('res-wrong').textContent   = gs.wrong.length;
+  document.getElementById('res-score').textContent   = gs.score;
+  document.getElementById('btn-next-lv').style.display = canAdvance ? '' : 'none';
+
+  /* 完成全部 3 关：左侧按钮改为"回到主页" */
+  const retryBtn = document.getElementById('btn-retry');
+  if (isSessionComplete) {
+    retryBtn.textContent = '回到主页';
+    retryBtn.onclick = goBackCover;
+  } else {
+    retryBtn.textContent = '重新开始';
+    retryBtn.onclick = restartGame;
+  }
+
+  showScreen('result-screen');
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   格子构建
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function buildGrid() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  grid.style.gridTemplateColumns = `repeat(${gs.N}, 1fr)`;
+  grid.style.gap = '8px';
+  const size = calcCellSize(gs.N);
+  for (let i = 0; i < gs.N * gs.N; i++) {
+    const cell = document.createElement('div');
+    cell.className   = 'cell';
+    cell.dataset.idx = i;
+    cell.style.width  = size + 'px';
+    cell.style.height = size + 'px';
+    cell.addEventListener('click', () => handleClick(i));
+    grid.appendChild(cell);
+  }
+}
+
+function calcCellSize(N) {
+  const gap = 8, pad = 30;
+  const maxW = Math.min(window.innerWidth  - 40, 400) - pad - (N - 1) * gap;
+  const maxH = (window.innerHeight - 290)            - pad - (N - 1) * gap;
+  return Math.max(38, Math.min(80, Math.floor(Math.min(maxW, maxH) / N)));
+}
+
+/* ── 游戏工具函数 ── */
+function getCell(idx)  { return document.querySelector(`#grid [data-idx="${idx}"]`); }
+function setBadge(type, text) { const el = document.getElementById('phase-badge'); el.className = 'phase-badge ' + type; el.textContent = text; }
+function setHint(text) { const el = document.getElementById('hint-pill'); if (el) el.textContent = text; }
+function showHint(show){ const el = document.getElementById('hint-pill'); if (el) el.style.display = show ? 'flex' : 'none'; }
+function updateHint()  {
+  const rem = gs.X - gs.correct.length;
+  if (rem > 0) setHint(`还有 ${rem} 个方块未找到`);
+  else         setHint('太棒了，全部找到！');
+}
+function setTimerBar(pct, danger) { const fill = document.getElementById('timer-fill'); fill.style.width = (pct * 100) + '%'; fill.className = 'timer-fill' + (danger ? ' danger' : ''); }
+function stopTimer()   { if (gs.timer) { clearInterval(gs.timer); gs.timer = null; } }
+
+/* ── homeBtn hover ── */
+const _hBtn = document.getElementById('homeBtn');
+_hBtn.onmouseover = function() { this.style.background = 'rgba(0,0,0,.8)'; };
+_hBtn.onmouseout  = function() { this.style.background = 'rgba(0,0,0,.55)'; };
+
+/* ── 页面初始化：首页默认显示 homeBtn ── */
+_hBtn.style.display = 'flex';
+</script>
+
+</body>
+</html>

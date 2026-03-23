@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>高铁枢纽站</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+    :root{
+      --safe-top: max(20px, env(safe-area-inset-top, 20px));
+      --safe-bot: max(24px, env(safe-area-inset-bottom, 24px));
+      --blue:#4a9eff; --blue2:#2563eb; --gold:#ffd700; --cyan:#00d4ff;
+    }
+    body{
+      background:#0a0f1a;
+      font-family:'PingFang SC','Microsoft YaHei',sans-serif;
+      min-height:100vh;display:flex;flex-direction:column;align-items:center;
+      overflow:hidden;touch-action:none;
+    }
+
+    /* ── Full-screen overlay screens ── */
+    .fscreen{
+      position:fixed;inset:0;z-index:200;
+      display:flex;flex-direction:column;align-items:center;
+      overflow-y:auto;-webkit-overflow-scrolling:touch;
+    }
+    .fscreen.hidden{display:none;}
+
+    /* ═══ HOME SCREEN ═══ */
+    #homeScreen{
+      background:
+        radial-gradient(ellipse 120% 50% at 50% 0%, rgba(74,158,255,.18) 0%, transparent 55%),
+        linear-gradient(180deg, #0a0f1a 0%, #0d1525 50%, #0a0f1a 100%);
+    }
+    .home-body{
+      position:relative; z-index:1; width:100%; max-width:420px;
+      padding:var(--safe-top) 22px var(--safe-bot);
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      min-height:100%; margin:0 auto;
+    }
+    .home-index-btn{
+      position:fixed; top:12px; left:12px; z-index:9999;
+      display:flex; align-items:center; gap:5px;
+      background:rgba(0,0,0,.55); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+      border:1px solid rgba(255,255,255,.2); color:#fff;
+      font-size:13px; font-weight:600; padding:7px 14px; border-radius:20px;
+      cursor:pointer; text-decoration:none;
+      font-family:'PingFang SC','Microsoft YaHei',Arial,sans-serif;
+      transition:background .15s;
+    }
+    .home-index-btn:hover{background:rgba(0,0,0,.8);}
+    .home-index-btn:active{opacity:.88; transform:scale(.97);}
+    .icon-wrap{
+      width:88px; height:88px; margin:8px auto 14px;
+      background:linear-gradient(145deg,rgba(74,158,255,.4),rgba(0,212,255,.3));
+      border:2px solid rgba(100,180,255,.24); border-radius:26px;
+      display:flex; align-items:center; justify-content:center; font-size:50px;
+      box-shadow:0 12px 36px rgba(74,158,255,.3),inset 0 1px 0 rgba(255,255,255,.15);
+      animation:iconBob 3.8s ease-in-out infinite;
+    }
+    @keyframes iconBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+    .game-name{font-size:36px;font-weight:900;color:#fff;letter-spacing:8px;text-align:center;margin-bottom:6px;text-shadow:0 0 28px rgba(74,158,255,.4),0 2px 5px rgba(0,0,0,.6);}
+    .game-sub{font-size:13px;color:rgba(160,215,255,.58);letter-spacing:1.5px;text-align:center;margin-bottom:24px;}
+    .guide-card{
+      width:100%; background:rgba(0,0,0,.32); border:1px solid rgba(100,180,255,.15);
+      border-radius:16px; padding:16px 20px; margin-bottom:22px;
+    }
+    .guide-line{display:flex;align-items:baseline;gap:9px;font-size:14.5px;color:rgba(255,255,255,.78);line-height:2.05;}
+    .guide-line strong{color:var(--gold);font-weight:700;}
+    .guide-line em{color:#ff6b6b;font-style:normal;font-weight:700;}
+    .diff-label{font-size:12px;color:rgba(160,200,255,.55);letter-spacing:2px;margin-bottom:10px;align-self:flex-start;}
+    .diff-group{width:100%;display:flex;gap:10px;margin-bottom:26px;}
+    .diff-btn{
+      flex:1; padding:10px 6px;
+      background:rgba(255,255,255,.07); border:1.5px solid rgba(255,255,255,.2);
+      border-radius:22px; color:rgba(255,255,255,.7);
+      font-size:13px; font-weight:600; cursor:pointer; text-align:center; line-height:1.55; transition:all .16s;
+    }
+    .diff-btn small{display:block;font-size:11px;font-weight:400;opacity:.75;}
+    .diff-btn.selected{border-color:var(--blue);background:rgba(74,158,255,.22);color:var(--cyan);box-shadow:0 0 16px rgba(74,158,255,.22);}
+    .diff-btn:active{transform:scale(.94);}
+    .start-btn{
+      width:100%; padding:16px;
+      background:linear-gradient(135deg, var(--blue), var(--blue2));
+      border:none; border-radius:50px; color:#fff;
+      font-size:19px; font-weight:800; letter-spacing:4px;
+      cursor:pointer; box-shadow:0 6px 26px rgba(74,158,255,.42);
+      transition:all .15s; position:relative; overflow:hidden;
+    }
+    .start-btn::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.15) 0%,transparent 55%);}
+    .start-btn:active{transform:scale(.96);opacity:.9;}
+
+    /* ═══ TUTORIAL SCREEN ═══ */
+    #tutScreen{
+      background:#0a0f1a;
+      padding:0;overflow:hidden;justify-content:flex-start;
+    }
+    .tut-body{width:100%;max-width:460px;padding:var(--safe-top) 22px 0;display:flex;flex-direction:column;align-items:center;min-height:100%;margin:0 auto;}
+    .tut-topbar{width:100%;display:flex;align-items:center;gap:12px;margin-bottom:22px;}
+    .tut-back{height:38px;flex-shrink:0;padding:0 14px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.15);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;cursor:pointer;color:rgba(255,255,255,.75);white-space:nowrap;}
+    .tut-back:active{opacity:.7;}
+    .tut-skip{height:38px;flex-shrink:0;padding:0 14px;background:rgba(74,158,255,.15);border:1px solid rgba(74,158,255,.4);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;cursor:pointer;color:var(--blue);white-space:nowrap;}
+    .tut-skip:active{opacity:.7;}
+    .tut-progress{flex:1;height:6px;background:rgba(255,255,255,.11);border-radius:3px;overflow:hidden;}
+    .tut-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--cyan));border-radius:3px;transition:width .35s ease;}
+    .tut-cnt{font-size:14px;color:rgba(255,255,255,.4);flex-shrink:0;min-width:36px;text-align:right;}
+    .tut-panel{width:100%;display:none;flex-direction:column;align-items:center;}
+    .tut-panel.active{display:flex;animation:panelIn .3s ease;}
+    @keyframes panelIn{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+    .demo-box{width:100%;height:195px;background:linear-gradient(180deg,rgba(74,158,255,.25) 0%,rgba(37,99,235,.35) 100%);border:1px solid rgba(100,180,255,.2);border-radius:22px;margin-bottom:22px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+    .step-head{font-size:22px;font-weight:800;color:#fff;text-align:center;margin-bottom:10px;}
+    .step-body{font-size:17px;color:rgba(255,255,255,.82);text-align:center;line-height:1.95;margin-bottom:20px;max-width:340px;}
+    .step-body strong{color:var(--gold);}
+    .step-body .danger{color:#ff6b6b;font-weight:700;}
+    .tut-nav{width:100%;display:flex;gap:12px;margin-top:auto;padding:14px 0 var(--safe-bot);}
+    .btn-prev{flex:0 0 88px;height:58px;background:rgba(255,255,255,.09);border:1.5px solid rgba(255,255,255,.18);border-radius:16px;color:rgba(255,255,255,.7);font-size:15px;cursor:pointer;visibility:hidden;}
+    .btn-prev:active{opacity:.7;transform:scale(.96);}
+    .btn-next{flex:1;height:58px;background:linear-gradient(135deg,var(--blue),var(--blue2));border:none;border-radius:16px;color:#fff;font-size:19px;font-weight:700;letter-spacing:1px;cursor:pointer;box-shadow:0 5px 22px rgba(74,158,255,.35);display:flex;align-items:center;justify-content:center;gap:6px;transition:background .25s;}
+    .btn-next:active{transform:scale(.97);opacity:.92;}
+    .btn-next.final{background:linear-gradient(135deg,#1a9a55,#22CC66);box-shadow:0 5px 22px rgba(0,180,80,.32);}
+    /* Station demo */
+    .station-row{display:flex;gap:10px;}
+    .demo-station{display:flex;flex-direction:column;align-items:center;gap:5px;}
+    .demo-st-ic{width:38px;height:38px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;}
+    .demo-st-nm{font-size:10px;font-weight:600;}
+    /* Train demo */
+    .train-demo{display:flex;flex-direction:column;align-items:center;gap:10px;}
+    .train-icon{font-size:48px;animation:trainMove 2s ease-in-out infinite;}
+    @keyframes trainMove{0%,100%{transform:translateX(-10px);}50%{transform:translateX(10px);}}
+    .train-badge{background:rgba(0,0,0,.6);border-radius:8px;padding:5px 12px;font-size:13px;font-weight:700;color:#fff;display:flex;align-items:center;gap:6px;}
+    .train-dest{width:24px;height:24px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;}
+    /* Junction demo */
+    .junction-demo{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;}
+    .junc-label{font-size:13px;color:var(--cyan);font-weight:700;animation:blink .8s ease-in-out infinite;}
+    @keyframes blink{0%,100%{opacity:1;}50%{opacity:.4;}}
+    .junc-btns{display:flex;gap:12px;}
+    .junc-btn{padding:10px 18px;border-radius:50px;border:2px solid;font-size:13px;font-weight:700;cursor:default;background:rgba(3,10,26,.9);backdrop-filter:blur(8px);color:#fff;}
+    .junc-btn.left{border-color:var(--blue);color:var(--blue);animation:btnPop .8s ease-in-out infinite;}
+    .junc-btn.right{border-color:var(--blue);color:var(--blue);animation:btnPop .8s ease-in-out infinite .4s;}
+    @keyframes btnPop{0%,100%{transform:scale(1);}50%{transform:scale(1.06);}}
+    /* Scoring demo */
+    .score-demo{display:flex;flex-direction:column;gap:8px;width:100%;padding:0 20px;}
+    .score-row{display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,.3);border:1px solid rgba(100,180,255,.15);border-radius:10px;padding:9px 14px;}
+    .score-lbl{font-size:13px;color:rgba(160,200,255,.6);}
+    .score-val{font-size:14px;font-weight:800;color:#ffb347;}
+
+    /* ═══ GAME WRAPPER ═══ */
+    #gameArea{
+      position:fixed;inset:0;z-index:10;
+      display:none;
+      align-items:center;justify-content:center;
+      background:radial-gradient(ellipse at 50% 100%,rgba(0,60,120,.3) 0%,transparent 60%),#0a0f1a;
+    }
+    #gameArea.active{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:60px;}
+    #wrap{position:relative;user-select:none;}
+    canvas{display:block;border-radius:20px;box-shadow:0 0 100px rgba(0,100,255,.25),0 0 0 1px rgba(100,180,255,.15);}
+
+    /* ── HUD ── */
+    #rh-hud{position:fixed;top:10px;left:12px;z-index:100;display:none;gap:10px;}
+    .rh-pill{background:rgba(0,0,0,.55);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.18);border-radius:20px;padding:8px 16px;font-size:14px;font-weight:700;color:#fff;}
+    #rh-score{color:#FFD93D;font-weight:800;}
+    #rh-time{color:#6BCB77;font-weight:800;}
+    #rh-time.urgent{color:#FF6B6B;animation:timeBlink .5s infinite alternate;}
+    @keyframes timeBlink{to{transform:scale(1.1);}}
+
+    /* ── 底部候车区 ── */
+    #rh-queue{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(2,8,18,.9);backdrop-filter:blur(10px);border-top:1px solid rgba(100,180,255,.2);padding:10px 16px 16px;display:none;flex-direction:column;align-items:center;gap:8px;}
+    .queue-hd{font-size:11px;color:rgba(160,200,255,.6);letter-spacing:2px;}
+    .queue-list{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;}
+    .queue-chip{width:36px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+    .queue-chip.next{box-shadow:0 0 15px currentColor;border:2px solid #FFD93D;transform:scale(1.1);}
+    .queue-chip.done{background:rgba(100,200,130,.3);color:#6BCB77;}
+    .queue-empty{color:rgba(100,200,130,.8);font-size:13px;font-weight:600;}
+
+    /* ── Junction buttons ── */
+    #jp{position:absolute;bottom:0;left:50%;transform:translateX(-50%);display:none;justify-content:center;gap:16px;z-index:20;padding:12px 20px;background:rgba(3,10,26,.85);backdrop-filter:blur(20px);border-radius:50px;border:1px solid rgba(100,180,255,.25);box-shadow:0 8px 32px rgba(0,0,0,.4),0 0 40px rgba(74,158,255,.15);}
+    .jb{padding:14px 28px;min-width:130px;text-align:center;border-radius:50px;border:2.5px solid;font-size:15px;font-weight:800;cursor:pointer;background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.02));color:#fff;transition:all 0.15s;letter-spacing:1px;text-shadow:0 1px 2px rgba(0,0,0,.3);}
+    .jb:active{transform:scale(0.94);}
+    .jb.pulse{animation:btnPulse 0.6s ease-in-out infinite;}
+    @keyframes btnPulse{0%,100%{box-shadow:0 0 0 0 currentColor}50%{box-shadow:0 0 20px 4px currentColor}}
+
+    /* ── In-game overlay screens ── */
+    .scr{position:absolute;inset:0;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:30;padding:28px;}
+    #ss{background:radial-gradient(ellipse at 50% 38%,#0b2248 0%,#020810 100%);display:none;}
+    #es{background:rgba(2,8,18,.96);display:none;}
+    .ttl{font-size:26px;font-weight:800;color:#fff;text-align:center;text-shadow:0 0 28px rgba(74,158,255,.4),0 2px 5px rgba(0,0,0,.6);margin-bottom:4px;}
+    .sub{font-size:12px;color:rgba(160,200,255,.55);margin-bottom:20px;}
+    .sc-big{font-size:56px;font-weight:900;color:var(--gold);line-height:1;text-shadow:0 0 24px rgba(255,215,0,.45);margin:8px 0 4px;}
+    .rtg{font-size:15px;font-weight:700;margin-bottom:18px;}
+    .result-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:300px;margin-bottom:20px;}
+    .res-card{background:rgba(255,255,255,.07);border:1px solid rgba(100,180,255,.18);border-radius:12px;padding:14px 10px;text-align:center;}
+    .res-card-lbl{font-size:11px;color:rgba(160,200,255,.55);margin-bottom:6px;letter-spacing:.5px;}
+    .res-card-val{font-size:20px;font-weight:700;color:#4dabf7;}
+    .res-card-val.hl{color:var(--gold);}
+    .btn-row-res{display:flex;gap:12px;margin-top:4px;}
+    .g-btn{padding:13px 32px;border:none;border-radius:50px;background:linear-gradient(135deg,var(--blue),var(--blue2));color:#fff;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 18px rgba(74,158,255,.4);transition:transform .15s;}
+    .g-btn:active{transform:scale(.95);}
+    .btn-home-res{padding:12px 22px;border-radius:50px;border:1.5px solid rgba(100,180,255,.3);background:rgba(100,180,255,.1);font-size:14px;font-weight:600;color:rgba(255,255,255,.8);cursor:pointer;}
+
+    /* ── Pause Button ── */
+    #pauseBtn{
+      position:fixed;
+      top:max(10px,env(safe-area-inset-top,10px));
+      right:max(12px,env(safe-area-inset-right,12px));
+      left:auto;bottom:auto;z-index:500;display:none;
+      height:38px;padding:0 16px;border-radius:19px;
+      border:1.5px solid rgba(255,255,255,.25);
+      background:rgba(0,0,0,.5);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+      color:#fff;font-size:14px;font-weight:700;
+      font-family:'PingFang SC','Microsoft YaHei',sans-serif;letter-spacing:2px;
+      cursor:pointer;align-items:center;justify-content:center;
+    }
+
+    /* ── Pause Overlay ── */
+    #pauseOverlay{
+      position:fixed;inset:0;z-index:600;display:none;
+      flex-direction:column;align-items:center;justify-content:center;gap:16px;
+      background:rgba(10,15,26,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+      font-family:'PingFang SC','Microsoft YaHei',sans-serif;
+    }
+    .po-icon{font-size:48px;}
+    .po-title{font-size:22px;font-weight:700;color:#fff;margin-bottom:8px;}
+    .po-btn{width:180px;padding:13px 0;border-radius:50px;font-size:15px;font-weight:600;cursor:pointer;text-align:center;text-decoration:none;display:block;transition:opacity .15s;border:none;}
+    .po-btn:hover{opacity:.85;}
+    .po-resume{background:linear-gradient(135deg,var(--blue),var(--blue2));color:#fff;box-shadow:0 4px 16px rgba(74,158,255,.4);}
+    .po-home{background:rgba(255,255,255,.1);color:rgba(255,255,255,.85);border:1.5px solid rgba(255,255,255,.24);}
+
+    /* ── Home btn ── */
+    #homeBtn{
+      position:fixed;top:12px;left:12px;z-index:9999;display:flex;align-items:center;gap:5px;
+      background:rgba(0,0,0,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+      border:1px solid rgba(255,255,255,.2);color:#fff;font-size:13px;font-weight:600;
+      padding:7px 14px;border-radius:20px;cursor:pointer;text-decoration:none;
+      font-family:'PingFang SC','Microsoft YaHei',Arial,sans-serif;transition:background .15s;
+    }
+    #homeBtn:hover{background:rgba(0,0,0,.8);}
+    #homeBtn:active{opacity:.88;transform:scale(.97);}
+  </style>
+</head>
+<body>
+
+<button id="pauseBtn" onclick="togglePause()">暂 停</button>
+<div id="pauseOverlay">
+  <div class="po-icon">🚄</div>
+  <div class="po-title">游戏已暂停</div>
+  <button class="po-btn po-resume" onclick="togglePause()">继续游戏</button>
+  <button class="po-btn po-home" onclick="goBackHome()">回到主页</button>
+</div>
+
+<!-- ═══ HOME SCREEN ═══ -->
+<div id="homeScreen" class="fscreen">
+  <a href="index.html" class="home-index-btn">🏠 游戏列表</a>
+  <div class="home-body">
+    <div class="icon-wrap">🚄</div>
+    <div class="game-name">高铁枢纽站</div>
+    <div class="game-sub">在分叉口做出正确决策 · 引导高铁驶入对应站台</div>
+    <div class="guide-card">
+      <div class="guide-line">🚄 <span>高铁身上有<strong>目的地标识</strong>，看清后及时调度</span></div>
+      <div class="guide-line">🔀 <span>到达<strong>分叉口</strong>时，按左/右按钮引导方向</span></div>
+      <div class="guide-line">✅ <span>准确入站 <strong>+100分</strong>，连续正确有<em>连击加成</em></span></div>
+      <div class="guide-line">⏱ <span>60秒内完成所有调度，看最终评级！</span></div>
+    </div>
+    <div class="diff-label">选择难度（会影响）</div>
+    <div class="diff-group">
+      <button class="diff-btn selected" id="db-easy" onclick="selectDiff('easy')">🌱 入门<small>速度慢</small></button>
+      <button class="diff-btn" id="db-medium" onclick="selectDiff('medium')">🔥 标准<small>经典体验</small></button>
+      <button class="diff-btn" id="db-hard" onclick="selectDiff('hard')">💀 极限<small>高手挑战</small></button>
+    </div>
+    <button class="start-btn" onclick="goTutorial()">开 始 挑 战</button>
+  </div>
+</div>
+
+<!-- ═══ TUTORIAL SCREEN ═══ -->
+<div id="tutScreen" class="fscreen hidden">
+  <div class="tut-body">
+    <div class="tut-topbar">
+      <div class="tut-back" id="tutBack" onclick="goBackHome()">返回</div>
+      <div class="tut-progress"><div class="tut-fill" id="tutFill" style="width:25%"></div></div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="tut-cnt" id="tutCnt">1 / 4</div>
+        <div class="tut-skip" onclick="skipTutorial()">跳过</div>
+      </div>
+    </div>
+
+    <!-- Panel 1: 认识四大站台 -->
+    <div class="tut-panel active" id="p1">
+      <div class="demo-box">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:12px">
+          <div class="station-row">
+            <div class="demo-station"><div class="demo-st-ic" style="background:#FF6B6B;box-shadow:0 0 12px #FF6B6B">A</div><div class="demo-st-nm" style="color:#FF6B6B">北京站</div></div>
+            <div class="demo-station"><div class="demo-st-ic" style="background:#FFD93D;box-shadow:0 0 12px #FFD93D">B</div><div class="demo-st-nm" style="color:#FFD93D">上海站</div></div>
+            <div class="demo-station"><div class="demo-st-ic" style="background:#6BCB77;box-shadow:0 0 12px #6BCB77">C</div><div class="demo-st-nm" style="color:#6BCB77">广州站</div></div>
+            <div class="demo-station"><div class="demo-st-ic" style="background:#4DC9F6;box-shadow:0 0 12px #4DC9F6">D</div><div class="demo-st-nm" style="color:#4DC9F6">成都站</div></div>
+          </div>
+          <div style="font-size:12px;color:rgba(180,210,255,.55)">4 个目的地，随机出现</div>
+        </div>
+      </div>
+      <div class="step-head">🚉 认识四大站台</div>
+      <div class="step-body">地图顶部有 <strong>4个颜色各异的站台</strong>，<br>每趟高铁都对应一个目的地，<br>要送到正确的站台才能得分！</div>
+    </div>
+
+    <!-- Panel 2: 观察列车目的地 -->
+    <div class="tut-panel" id="p2">
+      <div class="demo-box">
+        <div class="train-demo">
+          <div class="train-icon">🚄</div>
+          <div class="train-badge">
+            <span style="color:rgba(255,255,255,.6);font-size:12px">目的地：</span>
+            <div class="train-dest" style="background:#FF6B6B;box-shadow:0 0 10px #FF6B6B">A</div>
+            <span style="color:#FF6B6B;font-weight:700">北京站</span>
+          </div>
+          <div style="font-size:12px;color:rgba(180,210,255,.5)">看清目的地，提前判断方向</div>
+        </div>
+      </div>
+      <div class="step-head">🚄 观察列车目的地</div>
+      <div class="step-body">每趟高铁<strong>车身上有字母标识</strong>，<br>告诉你它要去哪个站台。<br>从候车区出发，沿轨道向上行驶。</div>
+    </div>
+
+    <!-- Panel 3: 在分叉口做决策 -->
+    <div class="tut-panel" id="p3">
+      <div class="demo-box">
+        <div class="junction-demo">
+          <div class="junc-label">▲ 高铁等待决策中…</div>
+          <div class="junc-btns">
+            <div class="junc-btn left">◀ 北京/上海</div>
+            <div class="junc-btn right">广州/成都 ▶</div>
+          </div>
+          <div style="font-size:12px;color:rgba(180,210,255,.5)">点击对应方向引导高铁</div>
+        </div>
+      </div>
+      <div class="step-head">🔀 在分叉口做决策</div>
+      <div class="step-body">高铁到达<strong>分叉口</strong>时，屏幕底部会出现<strong>左/右按钮</strong>，<br>快速选择正确方向！<br><span class="danger">判断错误将扣分</span>，要小心。</div>
+    </div>
+
+    <!-- Panel 4: 计分规则 -->
+    <div class="tut-panel" id="p4">
+      <div class="demo-box" style="flex-direction:column;padding:20px;">
+        <div class="score-demo">
+          <div class="score-row"><span class="score-lbl">准确到站</span><span class="score-val">+100分</span></div>
+          <div class="score-row"><span class="score-lbl">连续正确（COMBO ×N）</span><span class="score-val">最高 ×5 加成</span></div>
+          <div class="score-row"><span class="score-lbl">误入错误站台</span><span class="score-val" style="color:#ff6b6b">−30分</span></div>
+          <div class="score-row"><span class="score-lbl">共 12 趟高铁</span><span class="score-val">最高 ~6000分</span></div>
+        </div>
+      </div>
+      <div class="step-head">🏆 计分规则</div>
+      <div class="step-body">准确调度高铁入站得分，<br>连续正确会有<strong>连击加成</strong>，分数翻倍！<br>60秒内完成所有调度，看最终评级。</div>
+    </div>
+
+    <div class="tut-nav">
+      <button class="btn-prev" id="btnPrev" onclick="tutPrev()">上一步</button>
+      <button class="btn-next" id="btnNext" onclick="tutNext()">下一步 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ GAME AREA ═══ -->
+<div id="gameArea">
+  <!-- HUD -->
+  <div id="rh-hud">
+    <div class="rh-pill">🚄 <span id="rh-score">0</span></div>
+    <div class="rh-pill">⏱ <span id="rh-time">60</span>s</div>
+  </div>
+  <div id="wrap">
+    <canvas id="c"></canvas>
+    <div id="jp">
+      <button class="jb" id="jb0" onclick="choose(0)">◀ 左</button>
+      <button class="jb" id="jb1" onclick="choose(1)">右 ▶</button>
+    </div>
+    <div class="scr" id="ss"></div>
+    <div class="scr" id="es"></div>
+  </div>
+  <!-- 底部候车区 -->
+  <div id="rh-queue">
+    <div class="queue-hd">候车区</div>
+    <div class="queue-list" id="queueList"></div>
+  </div>
+</div>
+
+<a href="index.html" id="homeBtn">🏠 游戏列表</a>
+
+<script>
+/* ─── Difficulty Config ─── */
+const DIFF_CFG = {
+  easy:   { spawnMs:1600, minMs:800,  accel:8,  trainSpeed:1.5 },
+  medium: { spawnMs:1400, minMs:650,  accel:12, trainSpeed:2.0 },
+  hard:   { spawnMs:1100, minMs:500,  accel:16, trainSpeed:2.5 },
+};
+const DIFF_NAMES = { easy:'🌱 入门', medium:'🔥 标准', hard:'💀 极限' };
+let selectedDiff = 'easy';
+
+function selectDiff(d) {
+  selectedDiff = d;
+  ['easy','medium','hard'].forEach(k =>
+    document.getElementById('db-'+k).classList.toggle('selected', k===d)
+  );
+}
+
+/* ─── Tutorial ─── */
+let tutStep = 1;
+const STEPS = 4;
+
+function refreshTut() {
+  for (let i = 1; i <= STEPS; i++)
+    document.getElementById('p'+i).classList.toggle('active', i === tutStep);
+  document.getElementById('tutFill').style.width = (tutStep / STEPS * 100) + '%';
+  document.getElementById('tutCnt').textContent  = `${tutStep} / ${STEPS}`;
+  document.getElementById('btnPrev').style.visibility = tutStep > 1 ? 'visible' : 'hidden';
+  const next = document.getElementById('btnNext');
+  if (tutStep === STEPS) { next.textContent = '✓ 开始游戏！'; next.classList.add('final'); }
+  else                   { next.textContent = '下一步 →';    next.classList.remove('final'); }
+}
+
+function tutNext() {
+  if (tutStep < STEPS) { tutStep++; refreshTut(); }
+  else { showFscreen(null); startGame(); }
+}
+function tutPrev() { if (tutStep > 1) { tutStep--; refreshTut(); } }
+function goTutorial() { tutStep = 1; showFscreen('tutScreen'); refreshTut(); }
+function goBackHome() { tutStep = 1; showFscreen('homeScreen'); }
+function skipTutorial() { showFscreen(null); startGame(); }
+
+/* ─── Screen Management ─── */
+function showFscreen(id) {
+  ['homeScreen','tutScreen'].forEach(sid =>
+    document.getElementById(sid).classList.toggle('hidden', sid!==id)
+  );
+  document.getElementById('homeBtn').style.display = id==='homeScreen'?'flex':'none';
+  document.getElementById('gameArea').classList.toggle('active', id===null);
+}
+
+function goBackHome() {
+  _rhPaused=false;gSt='idle';clearInterval(tid);hideJ();
+  trains=[];PARTICLES.length=0;RINGS.length=0;NOTICES.length=0;pJ=null;tutStep=1;
+  document.getElementById('pauseOverlay').style.display='none';
+  document.getElementById('pauseBtn').style.display='none';
+  document.getElementById('rh-hud').style.display='none';
+  document.getElementById('rh-queue').style.display='none';
+  document.getElementById('es').style.display='none';
+  document.getElementById('ss').style.display='none';
+  showFscreen('homeScreen');
+}
+
+/* ─── Game Engine (from original rail-hub.html) ─── */
+const CV=document.getElementById('c');
+const cx=CV.getContext('2d');
+const WP=document.getElementById('wrap');
+const GW=400,GH=700;
+
+function resize(){
+  const s=Math.min((innerWidth-16)/GW,(innerHeight-16)/GH);
+  CV.width=GW;CV.height=GH;
+  CV.style.width=GW*s+'px';CV.style.height=GH*s+'px';
+  WP.style.width=GW*s+'px';WP.style.height=GH*s+'px';
+}
+resize();addEventListener('resize',resize);
+
+const STATS=[
+  {id:'A',name:'北京站',color:'#FF6B6B',x:55,y:148},
+  {id:'B',name:'上海站',color:'#FFD93D',x:150,y:148},
+  {id:'C',name:'广州站',color:'#6BCB77',x:250,y:148},
+  {id:'D',name:'成都站',color:'#4DC9F6',x:345,y:148}
+];
+
+const SEG={
+  s_j1:[[200,655],[200,565],[200,480]],
+  j1_j2:[[200,480],[155,415],[102,305]],
+  j1_j3:[[200,480],[248,415],[298,305]],
+  j2_a:[[102,305],[72,228],[55,148]],
+  j2_b:[[102,305],[135,228],[150,148]],
+  j3_c:[[298,305],[268,228],[250,148]],
+  j3_d:[[298,305],[325,228],[345,148]]
+};
+
+const SEND={s_j1:'J:j1',j1_j2:'J:j2',j1_j3:'J:j3',j2_a:'S:A',j2_b:'S:B',j3_c:'S:C',j3_d:'S:D'};
+
+const JD={
+  j1:{x:200,y:480,opts:[{lbl:'◀ 北京/上海',seg:'j1_j2',col:'#4499ff'},{lbl:'广州/成都 ▶',seg:'j1_j3',col:'#4499ff'}]},
+  j2:{x:102,y:305,opts:[{lbl:'◀ 北京(A)',seg:'j2_a',col:'#FF6B6B'},{lbl:'上海(B) ▶',seg:'j2_b',col:'#FFD93D'}]},
+  j3:{x:298,y:305,opts:[{lbl:'◀ 广州(C)',seg:'j3_c',col:'#6BCB77'},{lbl:'成都(D) ▶',seg:'j3_d',col:'#4DC9F6'}]}
+};
+
+function rr(x,y,w,h,r){cx.beginPath();cx.moveTo(x+r,y);cx.lineTo(x+w-r,y);cx.arcTo(x+w,y,x+w,y+r,r);cx.lineTo(x+w,y+h-r);cx.arcTo(x+w,y+h,x+w-r,y+h,r);cx.lineTo(x+r,y+h);cx.arcTo(x,y+h,x,y+h-r,r);cx.lineTo(x,y+r);cx.arcTo(x,y,x+r,y,r);cx.closePath();}
+function smoothPath(pts,col,lw){cx.save();cx.strokeStyle=col;cx.lineWidth=lw;cx.lineCap='round';cx.lineJoin='round';cx.beginPath();cx.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length-1;i++){const mx=(pts[i][0]+pts[i+1][0])/2,my=(pts[i][1]+pts[i+1][1])/2;cx.quadraticCurveTo(pts[i][0],pts[i][1],mx,my);}cx.lineTo(pts[pts.length-1][0],pts[pts.length-1][1]);cx.stroke();cx.restore();}
+
+let gSt='idle',sc=0,tmr=60,cmb=0;
+let trains=[],parts=[],queue=[];
+let pJ=null;
+let totT=0,okT=0,ngT=0;
+let sFrm=0,frm=0;
+let tid;
+const SPD=2.0,SINT=300;
+
+class Train{
+  constructor(d){const s=STATS.find(x=>x.id===d);this.d=d;this.col=s.color;this.seg='s_j1';this.wi=0;this.x=SEG.s_j1[0][0];this.y=SEG.s_j1[0][1];this.ang=-Math.PI/2;this.st='mv';this.jId=null;this.arrOk=null;this.flash=0;}
+  upd(){
+    if(this.st!=='mv')return;
+    const pts=SEG[this.seg],nxt=pts[this.wi+1];
+    if(!nxt){const[type,id]=SEND[this.seg].split(':');if(type==='J'){this.st='wt';this.jId=id;if(!pJ){pJ={train:this,jId:id};showJ(id);}}else{this.arrive(id);}return;}
+    const dx=nxt[0]-this.x,dy=nxt[1]-this.y,d=Math.hypot(dx,dy);
+    if(d<SPD){this.x=nxt[0];this.y=nxt[1];this.wi++;}else{this.ang=Math.atan2(dy,dx);this.x+=dx/d*SPD;this.y+=dy/d*SPD;}
+  }
+  pick(segName){this.seg=segName;this.wi=0;this.st='mv';this.jId=null;}
+  arrive(sid){
+    totT++;const ok=sid===this.d;this.arrOk=ok;this.flash=40;
+    if(ok){okT++;cmb++;stationArriveSuccess(this.x,this.y,this.col);addNotice(sid,true,0);}
+    else{ngT++;cmb=0;stationArriveFail(this.x,this.y);addNotice(sid,false,0);}
+    setTimeout(()=>{this.st='dn';},800);
+  }
+  draw(){
+    if(this.st==='dn')return;
+    if(this.flash>0){this.flash--;if(this.flash%6<3)return;}
+    cx.save();cx.translate(this.x,this.y);cx.rotate(this.ang+Math.PI/2);
+    const W=20,H=34;cx.shadowBlur=18;cx.shadowColor=this.col;
+    cx.fillStyle=this.col;rr(-W/2,-H/2,W,H,5);cx.fill();
+    cx.beginPath();cx.moveTo(-W/2,-H/2);cx.lineTo(W/2,-H/2);cx.lineTo(0,-H/2-8);cx.closePath();cx.fill();
+    cx.shadowBlur=0;cx.fillStyle='rgba(255,255,255,.72)';
+    for(let i=0;i<3;i++){rr(-W/2+3,-H/2+5+i*9,W-6,5,2);cx.fill();}
+    cx.fillStyle='rgba(0,0,0,.75)';rr(-11,H/2-18,22,16,4);cx.fill();
+    cx.strokeStyle='rgba(255,255,255,.3)';cx.lineWidth=1;rr(-11,H/2-18,22,16,4);cx.stroke();
+    cx.fillStyle='#fff';cx.font='bold 12px sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(this.d,0,H/2-10);
+    cx.restore();
+  }
+}
+
+/* 粒子效果系统 - 进站特效 */
+const PARTICLES = [];
+const RINGS = [];
+
+// 创建星形粒子
+function createStar(x, y, col, isSuccess) {
+  const count = isSuccess ? 12 : 16;
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+    const speed = isSuccess ? 2 + Math.random() * 2 : 3 + Math.random() * 3;
+    const size = isSuccess ? 2 + Math.random() * 3 : 3 + Math.random() * 4;
+    PARTICLES.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - (isSuccess ? 1 : 0),
+      r: size,
+      col,
+      life: 1,
+      decay: 0.015 + Math.random() * 0.01,
+      type: isSuccess ? 'star' : 'spark',
+      rot: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.2
+    });
+  }
+}
+
+// 创建扩散光环
+function createRing(x, y, col) {
+  RINGS.push({
+    x, y,
+    r: 10,
+    maxR: 60,
+    col,
+    life: 1,
+    decay: 0.025
+  });
+}
+
+// 更新粒子
+function updateParticles() {
+  for (let i = PARTICLES.length - 1; i >= 0; i--) {
+    const p = PARTICLES[i];
+    p.life -= p.decay;
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.08; // 重力
+    p.rot += p.rotSpeed;
+    p.vx *= 0.98; // 阻力
+    if (p.life <= 0) PARTICLES.splice(i, 1);
+  }
+
+  for (let i = RINGS.length - 1; i >= 0; i--) {
+    const r = RINGS[i];
+    r.life -= r.decay;
+    r.r += (r.maxR - r.r) * 0.08;
+    if (r.life <= 0) RINGS.splice(i, 1);
+  }
+}
+
+// 绘制星形
+function drawStar(cx, x, y, r, rot, col, alpha) {
+  cx.save();
+  cx.translate(x, y);
+  cx.rotate(rot);
+  cx.globalAlpha = alpha;
+  cx.fillStyle = col;
+  cx.shadowColor = col;
+  cx.shadowBlur = 8;
+  cx.beginPath();
+  for (let i = 0; i < 5; i++) {
+    const angle = (Math.PI * 2 * i) / 5 - Math.PI / 2;
+    const x1 = Math.cos(angle) * r;
+    const y1 = Math.sin(angle) * r;
+    const angle2 = (Math.PI * 2 * (i + 0.5)) / 5 - Math.PI / 2;
+    const x2 = Math.cos(angle2) * r * 0.4;
+    const y2 = Math.sin(angle2) * r * 0.4;
+    if (i === 0) cx.moveTo(x1, y1);
+    else cx.lineTo(x1, y1);
+    cx.lineTo(x2, y2);
+  }
+  cx.closePath();
+  cx.fill();
+  cx.restore();
+}
+
+// 绘制火花
+function drawSpark(cx, x, y, r, col, alpha) {
+  cx.save();
+  cx.globalAlpha = alpha;
+  cx.fillStyle = col;
+  cx.shadowColor = col;
+  cx.shadowBlur = 6;
+  cx.beginPath();
+  cx.arc(x, y, r, 0, Math.PI * 2);
+  cx.fill();
+  // 十字光芒
+  cx.strokeStyle = col;
+  cx.lineWidth = 1;
+  cx.beginPath();
+  cx.moveTo(x - r * 2, y);
+  cx.lineTo(x + r * 2, y);
+  cx.moveTo(x, y - r * 2);
+  cx.lineTo(x, y + r * 2);
+  cx.stroke();
+  cx.restore();
+}
+
+// 绘制所有粒子
+function drawParticles() {
+  // 绘制光环
+  for (const r of RINGS) {
+    cx.save();
+    cx.globalAlpha = r.life * 0.6;
+    cx.strokeStyle = r.col;
+    cx.lineWidth = 3;
+    cx.shadowColor = r.col;
+    cx.shadowBlur = 10;
+    cx.beginPath();
+    cx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
+    cx.stroke();
+    cx.restore();
+  }
+
+  // 绘制粒子
+  for (const p of PARTICLES) {
+    if (p.type === 'star') {
+      drawStar(cx, p.x, p.y, p.r * p.life, p.rot, p.col, p.life);
+    } else {
+      drawSpark(cx, p.x, p.y, p.r * p.life, p.col, p.life);
+    }
+  }
+}
+
+// 进站特效 - 成功
+function stationArriveSuccess(x, y, col) {
+  createStar(x, y, col, true);
+  createStar(x, y, '#FFD93D', true); // 金色星星
+  createRing(x, y, col);
+}
+
+// 进站特效 - 失败
+function stationArriveFail(x, y) {
+  createStar(x, y, '#FF6B6B', false);
+  createStar(x, y, '#ff3333', false);
+  createRing(x, y, '#FF6B6B');
+}
+
+/* 游戏提示系统 - 更直观的视觉反馈 */
+const NOTICES = [];
+
+function addNotice(stId, ok, pts) {
+  const st = STATS.find(s => s.id === stId);
+  NOTICES.push({
+    x: st.x,
+    y: st.y - 50,
+    type: ok ? 'success' : 'fail',
+    col: ok ? '#6BCB77' : '#FF6B6B',
+    life: 1,
+    scale: 0,
+    targetScale: 1,
+    shake: ok ? 0 : 5 // 失败时震动
+  });
+}
+
+function updateNotices() {
+  for (let i = NOTICES.length - 1; i >= 0; i--) {
+    const n = NOTICES[i];
+    n.life -= 0.012;
+    n.y -= 0.3;
+    // 弹性缩放动画
+    n.scale += (n.targetScale - n.scale) * 0.15;
+    if (n.life < 0.3) n.targetScale = 0;
+    // 震动衰减
+    if (n.shake > 0) n.shake *= 0.9;
+    if (n.life <= 0) NOTICES.splice(i, 1);
+  }
+}
+
+function drawIcon(cx, x, y, size, type, col) {
+  cx.save();
+  cx.translate(x, y);
+  cx.strokeStyle = col;
+  cx.lineWidth = 4;
+  cx.lineCap = 'round';
+  cx.lineJoin = 'round';
+  cx.shadowColor = col;
+  cx.shadowBlur = 15;
+
+  if (type === 'success') {
+    // 绘制对勾
+    cx.beginPath();
+    cx.moveTo(-size * 0.3, 0);
+    cx.lineTo(-size * 0.05, size * 0.25);
+    cx.lineTo(size * 0.35, -size * 0.3);
+    cx.stroke();
+  } else {
+    // 绘制叉号
+    cx.beginPath();
+    cx.moveTo(-size * 0.25, -size * 0.25);
+    cx.lineTo(size * 0.25, size * 0.25);
+    cx.moveTo(size * 0.25, -size * 0.25);
+    cx.lineTo(-size * 0.25, size * 0.25);
+    cx.stroke();
+  }
+  cx.restore();
+}
+
+function drawNotices() {
+  for (const n of NOTICES) {
+    const alpha = Math.min(1, n.life / 0.3);
+    const shakeX = n.shake > 0 ? (Math.random() - 0.5) * n.shake : 0;
+    const shakeY = n.shake > 0 ? (Math.random() - 0.5) * n.shake : 0;
+
+    cx.save();
+    cx.translate(n.x + shakeX, n.y + shakeY);
+    cx.scale(n.scale, n.scale);
+    cx.globalAlpha = alpha;
+
+    // 背景圆
+    const r = 22;
+    cx.fillStyle = 'rgba(0,0,0,0.7)';
+    cx.strokeStyle = n.col;
+    cx.lineWidth = 2;
+    cx.shadowColor = n.col;
+    cx.shadowBlur = 20;
+    cx.beginPath();
+    cx.arc(0, 0, r, 0, Math.PI * 2);
+    cx.fill();
+    cx.stroke();
+    cx.shadowBlur = 0;
+
+    // 图标
+    drawIcon(cx, 0, 0, 16, n.type, n.col);
+
+    cx.restore();
+  }
+}
+
+const STARS=Array.from({length:38},()=>[Math.random()*GW,125+Math.random()*(GH-125)]);
+function drawBG(){const g=cx.createLinearGradient(0,0,0,GH);g.addColorStop(0,'#030a1c');g.addColorStop(0.65,'#04101f');g.addColorStop(1,'#07182a');cx.fillStyle=g;cx.fillRect(0,0,GW,GH);for(const[sx,sy]of STARS){const tw=0.3+0.7*Math.abs(Math.sin(frm*0.013+sx*0.09));cx.globalAlpha=tw*0.55;cx.fillStyle='#fff';cx.beginPath();cx.arc(sx,sy,1,0,Math.PI*2);cx.fill();}cx.globalAlpha=1;}
+function drawTracks(){for(const pts of Object.values(SEG)){smoothPath(pts,'rgba(0,50,115,.55)',12);smoothPath(pts,'#1b5492',7);smoothPath(pts,'rgba(80,170,255,.22)',3.5);}const ep=SEG.s_j1;const[x1,y1]=ep[0],[x2,y2]=ep[ep.length-1];const dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy);const nx=-dy/len,ny=dx/len;cx.strokeStyle='rgba(18,58,118,.88)';cx.lineWidth=7;cx.lineCap='butt';for(let t=18;t<len-8;t+=20){const bx=x1+dx*t/len,by=y1+dy*t/len;cx.beginPath();cx.moveTo(bx+nx*7,by+ny*7);cx.lineTo(bx-nx*7,by-ny*7);cx.stroke();}}
+function drawStations(){for(const{x,y,color,name,id}of STATS){cx.save();cx.shadowBlur=24;cx.shadowColor=color;cx.fillStyle='#091c38';cx.strokeStyle=color;cx.lineWidth=2;rr(x-34,y-36,68,72,10);cx.fill();cx.stroke();cx.fillStyle=color;cx.shadowBlur=12;rr(x-26,y-28,52,16,4);cx.fill();cx.shadowBlur=0;cx.fillStyle='#d8eeff';cx.font='bold 11px PingFang SC,Microsoft YaHei,sans-serif';cx.textAlign='center';cx.fillText(name,x,y+7);cx.fillStyle=color;cx.font='bold 16px sans-serif';cx.fillText(id,x,y+28);cx.restore();}}
+function drawJunctions(){for(const[jId,jd]of Object.entries(JD)){const act=pJ&&pJ.jId===jId;const pulse=act?0.6+0.4*Math.sin(frm*0.25):0.4;cx.save();if(act){const ringR=18+6*Math.sin(frm*0.15);cx.beginPath();cx.arc(jd.x,jd.y,ringR,0,Math.PI*2);cx.strokeStyle=`rgba(255,170,0,${0.4+0.3*Math.sin(frm*0.2)})`;cx.lineWidth=2;cx.stroke();}cx.shadowBlur=act?40:15;cx.shadowColor=act?'#ffaa00':'#2255aa';cx.fillStyle=act?`rgba(255,160,0,${pulse*0.5})`:'rgba(0,80,200,.25)';cx.strokeStyle=act?'#ffcc00':'#3366cc';cx.lineWidth=act?3:2;cx.beginPath();cx.arc(jd.x,jd.y,act?16:10,0,Math.PI*2);cx.fill();cx.stroke();cx.shadowBlur=0;cx.fillStyle=act?'#FFD93D':'#4488bb';cx.font=act?'bold 10px sans-serif':'9px sans-serif';cx.textAlign='center';cx.fillText('分叉',jd.x,jd.y+28);if(act&&pJ.train){cx.fillStyle=pJ.train.col;cx.font='bold 13px sans-serif';cx.shadowColor=pJ.train.col;cx.shadowBlur=15;cx.fillText('↑ '+pJ.train.d+' 待决策',jd.x,jd.y-26);cx.shadowBlur=0;cx.fillStyle='#FFD93D';cx.font='bold 10px sans-serif';cx.fillText('点击底部按钮引导',jd.x,jd.y-42);}cx.restore();}}
+function drawHUD(){}
+function drawQueueArea(){}
+function updateQueueHTML(){
+  const el=document.getElementById('queueList');
+  if(!el)return;
+  const shown=queue.slice(0,8);
+  if(shown.length===0){
+    const msg=trains.length>0?'最后一批列车已在途中…':'全部列车已出发 ✓';
+    el.innerHTML=`<div class="queue-empty">${msg}</div>`;
+    return;
+  }
+  let html='';
+  for(let i=0;i<shown.length;i++){
+    const st=STATS.find(s=>s.id===shown[i]);
+    const cls=i===0?'queue-chip next':'queue-chip';
+    html+=`<div class="${cls}" style="background:${i===0?st.color:st.color+'66'};color:${i===0?'#fff':'rgba(255,255,255,.7)'}" title="${st.name}">${shown[i]}</div>`;
+  }
+  if(queue.length>8) html+=`<div style="color:rgba(180,210,255,.6);font-size:11px;margin-left:4px;">+${queue.length-8}</div>`;
+  el.innerHTML=html;
+}
+
+function showJ(jId){const{opts}=JD[jId];['jb0','jb1'].forEach((id,i)=>{const b=document.getElementById(id);b.textContent=opts[i].lbl;b.style.borderColor=b.style.color=opts[i].col;b.style.boxShadow=`0 0 25px ${opts[i].col}66`;b.classList.add('pulse');});document.getElementById('jp').style.display='flex';}
+function hideJ(){document.getElementById('jp').style.display='none';document.querySelectorAll('.jb').forEach(b=>b.classList.remove('pulse'));}
+function choose(idx){if(!pJ||_rhPaused)return;const{train,jId}=pJ;train.pick(JD[jId].opts[idx].seg);pJ=null;hideJ();for(const t of trains){if(t.st==='wt'&&t!==train){pJ={train:t,jId:t.jId};showJ(t.jId);break;}}}
+
+function mkQueue(){const ids=STATS.map(s=>s.id),q=[];ids.forEach(id=>q.push(id,id));for(let i=0;i<4;i++)q.push(ids[~~(Math.random()*ids.length)]);for(let i=q.length-1;i>0;i--){const j=~~(Math.random()*(i+1));[q[i],q[j]]=[q[j],q[i]];}return q;}
+function trySpawn(){if(!queue.length)return;if(trains.some(t=>t.y>488||t.jId==='j1'))return;trains.push(new Train(queue.shift()));}
+
+function loop(){
+  requestAnimationFrame(loop);if(_rhPaused)return;frm++;
+  cx.clearRect(0,0,GW,GH);drawBG();drawTracks();drawStations();drawJunctions();
+  if(gSt==='play'){if(++sFrm>=SINT){sFrm=0;trySpawn();updateQueueHTML();}for(const t of trains)t.upd();trains=trains.filter(t=>t.st!=='dn');updateParticles();updateNotices();if((queue.length===0&&trains.length===0)||tmr<=0)endGame();}
+  for(const t of trains)t.draw();updateParticles();drawParticles();drawNotices();
+}
+
+let _rhPaused=false;
+function updateHUD(){
+  document.getElementById('rh-score').textContent=sc;
+  const timeEl=document.getElementById('rh-time');
+  timeEl.textContent=tmr;
+  if(tmr<=10)timeEl.classList.add('urgent');
+  else timeEl.classList.remove('urgent');
+}
+function togglePause(){
+  if(gSt!=='play')return;
+  _rhPaused=!_rhPaused;
+  document.getElementById('pauseOverlay').style.display=_rhPaused?'flex':'none';
+  if(_rhPaused)clearInterval(tid);
+  else tid=setInterval(()=>{if(gSt==='play'){--tmr;if(tmr<=0)tmr=0;updateHUD();}},1000);
+}
+
+function startGame(){
+  sc=0;tmr=60;cmb=0;totT=0;okT=0;ngT=0;
+  trains=[];PARTICLES.length=0;RINGS.length=0;NOTICES.length=0;pJ=null;sFrm=260;frm=0;_rhPaused=false;
+  document.getElementById('pauseOverlay').style.display='none';
+  document.getElementById('pauseBtn').style.display='flex';
+  document.getElementById('rh-hud').style.display='flex';
+  document.getElementById('rh-queue').style.display='flex';
+  queue=mkQueue();updateQueueHTML();updateHUD();
+  document.getElementById('ss').style.display='none';
+  document.getElementById('es').style.display='none';
+  hideJ();gSt='play';clearInterval(tid);
+  tid=setInterval(()=>{if(gSt==='play'){--tmr;if(tmr<=0)tmr=0;updateHUD();}},1000);
+}
+
+function endGame(){
+  if(gSt!=='play')return;
+  gSt='over';
+  document.getElementById('pauseBtn').style.display='none';
+  document.getElementById('rh-hud').style.display='none';
+  document.getElementById('rh-queue').style.display='none';
+  clearInterval(tid);hideJ();
+  sc=totT*100;
+  const acc=totT>0?okT/totT:0;
+  const rtg=acc>=0.9?'🏆 大师级调度员！满分通过！':acc>=0.7?'⭐ 优秀调度员，干得漂亮！':acc>=0.5?'👍 合格调度员，还有提升空间':'💪 继续练习，你能做到的！';
+  const rtgCol=acc>=0.9?'#FFD93D':acc>=0.7?'#6BCB77':acc>=0.5?'#4dabf7':'#FF6B6B';
+  const esEl=document.getElementById('es');
+  const accPct=totT?~~(acc*100):0;
+  esEl.innerHTML=`<div class="ttl">本局结束</div><div class="sc-big">${sc}</div><div class="rtg" style="color:${rtgCol}">${rtg}</div><div class="result-grid"><div class="res-card"><div class="res-card-lbl">总列次</div><div class="res-card-val">${totT}</div></div><div class="res-card"><div class="res-card-lbl">准点到站</div><div class="res-card-val hl">${okT}</div></div><div class="res-card"><div class="res-card-lbl">误入站台</div><div class="res-card-val" style="color:#FF6B6B">${ngT}</div></div><div class="res-card"><div class="res-card-lbl">正确率</div><div class="res-card-val hl">${accPct}%</div></div></div><div class="btn-row-res"><button class="btn-home-res" onclick="goBackHome()">回到主页</button><button class="g-btn" onclick="startGame()">再来一局</button></div>`;
+  esEl.style.display='flex';
+}
+
+/* ── Init ── */
+loop();
+document.getElementById('homeBtn').style.display='flex';
+</script>
+</body>
+</html>
